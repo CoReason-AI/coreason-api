@@ -1,37 +1,57 @@
-# Stage 1: Builder
-FROM python:3.12-slim AS builder
+# Dockerfile
+# Base: python:3.12-slim-bookworm (Official Python Image)
 
-# Install build dependencies
-RUN pip install --no-cache-dir build==1.3.0
+FROM python:3.12-slim-bookworm
 
-# Set the working directory
+# Set environment variables
+# PYTHONDONTWRITEBYTECODE: Prevents Python from writing pyc files to disc
+# PYTHONUNBUFFERED: Prevents Python from buffering stdout and stderr
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    POETRY_VERSION=1.8.3 \
+    POETRY_HOME="/opt/poetry" \
+    PATH="$POETRY_HOME/bin:$PATH"
+
+# Install system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        curl \
+        build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry
+RUN curl -sSL https://install.python-poetry.org | python3 -
+
+# Create user 'coreason'
+RUN groupadd -r coreason && useradd -r -g coreason coreason
+
+# Set work directory
 WORKDIR /app
 
-# Copy the project files
-COPY pyproject.toml .
-COPY src/ ./src/
-COPY README.md .
-COPY LICENSE .
+# Copy dependency definition
+COPY pyproject.toml poetry.lock* ./
 
-# Build the wheel
-RUN python -m build --wheel --outdir /wheels
+# Install dependencies (no dev dependencies)
+# We use --no-root because we copy source code later
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-root --only main --no-interaction --no-ansi
 
+# Copy project files
+COPY src/ src/
+COPY README.md LICENSE ./
 
-# Stage 2: Runtime
-FROM python:3.12-slim AS runtime
+# Install the project itself
+RUN poetry install --only main --no-interaction --no-ansi
 
-# Create a non-root user
-RUN useradd --create-home --shell /bin/bash appuser
-USER appuser
+# Change ownership to non-root user
+RUN chown -R coreason:coreason /app
 
-# Add user's local bin to PATH
-ENV PATH="/home/appuser/.local/bin:${PATH}"
+# Switch to non-root user
+USER coreason
 
-# Set the working directory
-WORKDIR /home/appuser/app
+# Expose port (Uvicorn default)
+EXPOSE 8000
 
-# Copy the wheel from the builder stage
-COPY --from=builder /wheels /wheels
-
-# Install the application wheel
-RUN pip install --no-cache-dir /wheels/*.whl
+# Command to run the application
+# We use uvicorn with host 0.0.0.0 to be accessible outside container
+CMD ["uvicorn", "coreason_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
