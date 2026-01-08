@@ -1,21 +1,26 @@
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, MagicMock
+
+from coreason_api.dependencies import get_redis_ledger, get_vault_manager
 from coreason_api.routers.system import router
-from coreason_api.dependencies import get_vault_manager, get_redis_ledger
 
 app = FastAPI()
 app.include_router(router)
+
 
 @pytest.fixture
 def client():
     return TestClient(app)
 
+
 def test_liveness(client):
     response = client.get("/health/live")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
 
 def test_readiness_success(client):
     mock_ledger = AsyncMock()
@@ -33,6 +38,7 @@ def test_readiness_success(client):
     mock_vault.get_secret.assert_called()
     app.dependency_overrides = {}
 
+
 def test_readiness_failure_redis(client):
     mock_ledger = AsyncMock()
     mock_ledger.connect.side_effect = Exception("Redis down")
@@ -43,6 +49,7 @@ def test_readiness_failure_redis(client):
     assert response.status_code == 503
     assert response.json()["detail"] == "Redis unreachable"
     app.dependency_overrides = {}
+
 
 def test_readiness_failure_vault(client):
     mock_ledger = AsyncMock()

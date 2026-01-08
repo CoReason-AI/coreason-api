@@ -1,19 +1,30 @@
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, AsyncMock, patch
-from coreason_api.main import app
-from coreason_api.dependencies import get_identity_manager, get_budget_guard, get_gatekeeper, get_auditor, get_session_manager, get_redis_ledger, get_trust_anchor
 from coreason_identity.models import UserContext
-from coreason_veritas.gatekeeper import SignatureValidator as Gatekeeper
-from coreason_veritas.auditor import IERLogger as Auditor
 from coreason_mcp.session_manager import SessionManager
 from coreason_veritas.anchor import DeterminismInterceptor as TrustAnchor
+from coreason_veritas.auditor import IERLogger as Auditor
+from coreason_veritas.gatekeeper import SignatureValidator as Gatekeeper
+from fastapi.testclient import TestClient
+
+from coreason_api.dependencies import (
+    get_auditor,
+    get_budget_guard,
+    get_gatekeeper,
+    get_identity_manager,
+    get_redis_ledger,
+    get_session_manager,
+)
+from coreason_api.main import app
+
 
 @pytest.fixture
 def client():
     # Using context manager to ensure lifespan events run
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
+
 
 @pytest.fixture
 def mock_deps():
@@ -24,7 +35,7 @@ def mock_deps():
 
     budget = AsyncMock()
     budget.check.return_value = True
-    budget.connect.return_value = None # For readiness
+    budget.connect.return_value = None  # For readiness
 
     gatekeeper = MagicMock(spec=Gatekeeper)
     auditor = MagicMock(spec=Auditor)
@@ -39,13 +50,15 @@ def mock_deps():
         "auditor": auditor,
         "session": session,
         "trust_anchor": trust_anchor,
-        "ledger": ledger
+        "ledger": ledger,
     }
+
 
 def test_health_check(client):
     response = client.get("/health/live")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
 
 def test_readiness_check(client, mock_deps):
     app.dependency_overrides[get_redis_ledger] = lambda: mock_deps["ledger"]
@@ -53,11 +66,13 @@ def test_readiness_check(client, mock_deps):
     assert response.status_code == 200
     app.dependency_overrides = {}
 
+
 def test_global_exception_handler(client):
     # Route that triggers unhandled exception
 
     # We define a temporary route on the app to force an exception
     from fastapi import APIRouter
+
     router = APIRouter()
 
     @router.get("/force-error")
@@ -70,6 +85,7 @@ def test_global_exception_handler(client):
     assert response.status_code == 500
     assert response.json()["detail"] == "Internal Server Error"
 
+
 def test_full_flow_integration(client, mock_deps):
     # Test one full flow through main app entry point
     app.dependency_overrides[get_identity_manager] = lambda: mock_deps["identity"]
@@ -79,9 +95,7 @@ def test_full_flow_integration(client, mock_deps):
     app.dependency_overrides[get_session_manager] = lambda: mock_deps["session"]
 
     response = client.post(
-        "/v1/run/agent-main",
-        json={"input_data": {}, "estimated_cost": 1.0},
-        headers={"Authorization": "Bearer valid"}
+        "/v1/run/agent-main", json={"input_data": {}, "estimated_cost": 1.0}, headers={"Authorization": "Bearer valid"}
     )
 
     assert response.status_code == 200

@@ -1,8 +1,7 @@
-import pytest
-import sys
 import shutil
+import sys
 from pathlib import Path
-import importlib
+
 
 def test_logger_directory_creation_real_fs():
     # Remove module to force reload
@@ -15,10 +14,9 @@ def test_logger_directory_creation_real_fs():
 
     assert not log_path.exists()
 
-    import coreason_api.utils.logger
-
     assert log_path.exists()
     assert log_path.is_dir()
+
 
 def test_logger_directory_exists_real_fs():
     # Setup: ensure dir exists
@@ -28,7 +26,5 @@ def test_logger_directory_exists_real_fs():
     # Reload
     if "coreason_api.utils.logger" in sys.modules:
         del sys.modules["coreason_api.utils.logger"]
-
-    import coreason_api.utils.logger
 
     assert log_path.exists()

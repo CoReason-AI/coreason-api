@@ -2,7 +2,7 @@
 FROM python:3.12-slim-bookworm AS builder
 
 # Install build dependencies
-RUN pip install --no-cache-dir build==1.3.0 poetry
+RUN pip install --no-cache-dir build==1.3.0 poetry==1.8.3
 
 # Set the working directory
 WORKDIR /app

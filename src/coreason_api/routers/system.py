@@ -1,21 +1,21 @@
-from fastapi import APIRouter, Depends, status, HTTPException
-from coreason_vault import VaultManager
-from coreason_api.dependencies import get_vault_manager, get_redis_ledger
 from coreason_budget.ledger import RedisLedger
+from coreason_vault import VaultManager
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from coreason_api.dependencies import get_redis_ledger, get_vault_manager
 from coreason_api.utils.logger import logger
 
 router = APIRouter()
+
 
 @router.get("/health/live", status_code=status.HTTP_200_OK)
 async def liveness():
     """Returns 200 OK if Uvicorn is running."""
     return {"status": "ok"}
 
+
 @router.get("/health/ready", status_code=status.HTTP_200_OK)
-async def readiness(
-    vault: VaultManager = Depends(get_vault_manager),
-    ledger: RedisLedger = Depends(get_redis_ledger)
-):
+async def readiness(vault: VaultManager = Depends(get_vault_manager), ledger: RedisLedger = Depends(get_redis_ledger)):
     """Returns 200 OK if dependencies are reachable."""
 
     # Check Redis
@@ -23,7 +23,7 @@ async def readiness(
         await ledger.connect()
     except Exception as e:
         logger.error(f"Readiness check failed (Redis): {e}")
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Redis unreachable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Redis unreachable") from e
 
     # Check Vault
     try:
@@ -32,6 +32,6 @@ async def readiness(
         vault.get_secret("health-check-dummy", default=None)
     except Exception as e:
         logger.error(f"Readiness check failed (Vault): {e}")
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Vault unreachable")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Vault unreachable") from e
 
     return {"status": "ready"}

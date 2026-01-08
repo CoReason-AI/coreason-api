@@ -1,33 +1,42 @@
-from typing import Annotated, Any, Dict
-from fastapi import APIRouter, Depends, status, Header, HTTPException, Body, Request
-from pydantic import BaseModel
 import uuid
+from typing import Annotated, Any, Dict
 
-from coreason_api.dependencies import get_identity_manager, get_budget_guard, get_gatekeeper, get_auditor, get_session_manager, get_redis_ledger
+from coreason_budget.guard import BudgetGuard
 from coreason_identity.manager import IdentityManager
 from coreason_identity.models import UserContext
-from coreason_budget.guard import BudgetGuard
-from coreason_budget.ledger import RedisLedger
-from coreason_veritas.gatekeeper import SignatureValidator as Gatekeeper, AssetTamperedError
-from coreason_veritas.auditor import IERLogger as Auditor
 from coreason_mcp.session_manager import SessionManager
+from coreason_veritas.auditor import IERLogger as Auditor
+from coreason_veritas.gatekeeper import SignatureValidator as Gatekeeper
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from pydantic import BaseModel
+
+from coreason_api.dependencies import (
+    get_auditor,
+    get_budget_guard,
+    get_gatekeeper,
+    get_identity_manager,
+    get_session_manager,
+)
 from coreason_api.utils.logger import logger
 
 router = APIRouter(prefix="/v1")
+
 
 class RunAgentRequest(BaseModel):
     input_data: Dict[str, Any]
     project_id: str | None = None
     estimated_cost: float = 0.0
 
+
 class RunAgentResponse(BaseModel):
     execution_id: str
     status: str
     result: Any
 
+
 async def verify_auth(
     authorization: Annotated[str | None, Header()] = None,
-    identity_manager: IdentityManager = Depends(get_identity_manager)
+    identity_manager: IdentityManager = Depends(get_identity_manager),
 ) -> UserContext:
     if not authorization:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing Authorization header")
@@ -36,18 +45,19 @@ async def verify_auth(
         return identity_manager.validate_token(authorization)
     except Exception as e:
         logger.warning(f"Auth failed: {e}")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from e
+
 
 @router.post("/run/{agent_id}", response_model=RunAgentResponse)
 async def run_agent(
-    request_obj: Request, # To get Trace ID from middleware
+    request_obj: Request,  # To get Trace ID from middleware
     agent_id: str,
     request: RunAgentRequest,
     user: UserContext = Depends(verify_auth),
     budget_guard: BudgetGuard = Depends(get_budget_guard),
     auditor: Auditor = Depends(get_auditor),
     session_manager: SessionManager = Depends(get_session_manager),
-    gatekeeper: Gatekeeper = Depends(get_gatekeeper)
+    gatekeeper: Gatekeeper = Depends(get_gatekeeper),
 ):
     """
     Execute an agent.
@@ -59,18 +69,17 @@ async def run_agent(
     # 1. Budget Check
     try:
         allowed = await budget_guard.check(
-            user_id=user.sub,
-            project_id=project_id,
-            estimated_cost=request.estimated_cost
+            user_id=user.sub, project_id=project_id, estimated_cost=request.estimated_cost
         )
         if allowed is False:
-             raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Budget quota exceeded")
+            raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Budget quota exceeded")
     except Exception as e:
-        if isinstance(e, HTTPException): raise e
+        if isinstance(e, HTTPException):
+            raise e
         if "BudgetExceeded" in str(e) or "quota" in str(e).lower():
-             raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Budget quota exceeded")
+            raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Budget quota exceeded") from e
         logger.error(f"Budget check failed: {e}")
-        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Budget check failed")
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Budget check failed") from e
 
     # 2. Audit Start
     # "Log intent via coreason-veritas."
@@ -111,18 +120,14 @@ async def run_agent(
     # But I should structure the code to look like it tries.
 
     execution_result = {"status": "success", "output": "Mock output"}
-    actual_cost = request.estimated_cost # In reality, we measure tokens.
+    actual_cost = request.estimated_cost  # In reality, we measure tokens.
 
     # 4. Settlement
     # "Deduct cost via coreason-budget (fire-and-forget)."
     # Usage: `await budget.record_transaction(user_id, amount, context)`
     # Actual BudgetGuard has `charge(user_id, cost, ...)`
     try:
-        await budget_guard.charge(
-            user_id=user.sub,
-            cost=actual_cost,
-            project_id=project_id
-        )
+        await budget_guard.charge(user_id=user.sub, cost=actual_cost, project_id=project_id)
     except Exception as e:
         logger.error(f"Failed to settle budget: {e}")
         # We don't fail the request if charge fails (fire-and-forget / strictness depends on policy)
@@ -137,17 +142,13 @@ async def run_agent(
             trace_id=trace_id,
             user_id=user.sub,
             project_id=project_id,
-            model="agent-model", # Unknown
+            model="agent-model",  # Unknown
             input_tokens=100,
             output_tokens=100,
             cost_usd=actual_cost,
-            latency_ms=100
+            latency_ms=100,
         )
     except Exception as e:
         logger.error(f"Failed to audit: {e}")
 
-    return RunAgentResponse(
-        execution_id=trace_id,
-        status="completed",
-        result=execution_result
-    )
+    return RunAgentResponse(execution_id=trace_id, status="completed", result=execution_result)

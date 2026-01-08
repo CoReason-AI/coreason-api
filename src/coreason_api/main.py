@@ -9,13 +9,15 @@
 # Source Code: https://github.com/CoReason-AI/coreason_api
 
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from coreason_api.utils.logger import logger
 from coreason_api.config import get_settings
 from coreason_api.middleware import TraceIDMiddleware
-from coreason_api.routers import runtime, architect, system
+from coreason_api.routers import architect, runtime, system
+from coreason_api.utils.logger import logger
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,6 +26,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting Coreason API (Env: {settings.APP_ENV})")
     yield
     logger.info("Shutting down Coreason API")
+
 
 app = FastAPI(
     title="CoReason API",
@@ -40,6 +43,7 @@ app.add_middleware(TraceIDMiddleware)
 app.include_router(system.router, tags=["System"])
 app.include_router(runtime.router, tags=["Runtime"])
 app.include_router(architect.router, tags=["Architect"])
+
 
 # Global Exception Handlers
 @app.exception_handler(Exception)
