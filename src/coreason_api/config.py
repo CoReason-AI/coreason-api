@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from coreason_api.utils.logger import logger
 
 
-class Settings(BaseSettings):
+class Settings(BaseSettings):  # type: ignore[misc]
     APP_ENV: str = "development"
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
@@ -45,7 +45,7 @@ def get_settings() -> Settings:
         # Helper to override if exists
         updates = {}
 
-        def override(field_name: str, secret_key: str):
+        def override(field_name: str, secret_key: str) -> None:
             val = vault.get_secret(secret_key)
             if val:
                 updates[field_name] = val

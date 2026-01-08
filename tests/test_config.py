@@ -1,4 +1,5 @@
 import os
+from typing import Any, Generator
 from unittest.mock import patch
 
 import pytest
@@ -7,24 +8,24 @@ from coreason_api.config import get_settings
 
 
 @pytest.fixture
-def mock_vault():
+def mock_vault() -> Generator[Any, None, None]:
     with patch("coreason_api.config.VaultManager") as MockVault:
         yield MockVault
 
 
 @pytest.fixture
-def mock_vault_config():
+def mock_vault_config() -> Generator[Any, None, None]:
     with patch("coreason_api.config.CoreasonVaultConfig") as MockConfig:
         yield MockConfig
 
 
 @pytest.fixture
-def mock_logger():
+def mock_logger() -> Generator[Any, None, None]:
     with patch("coreason_api.config.logger") as MockLogger:
         yield MockLogger
 
 
-def test_settings_defaults(mock_vault, mock_vault_config):
+def test_settings_defaults(mock_vault: Any, mock_vault_config: Any) -> None:
     # Clear cache
     get_settings.cache_clear()
 
@@ -37,13 +38,13 @@ def test_settings_defaults(mock_vault, mock_vault_config):
     assert settings.DEBUG is False
 
 
-def test_settings_from_vault(mock_vault, mock_vault_config):
+def test_settings_from_vault(mock_vault: Any, mock_vault_config: Any) -> None:
     get_settings.cache_clear()
 
     mock_instance = mock_vault.return_value
 
     # Mock return values for different keys
-    def side_effect(key, default=None):
+    def side_effect(key: str, default: Any = None) -> Any:
         vals = {
             "SECRET_KEY": "vault-secret",
             "IDENTITY_CLIENT_ID": "vault-client-id",
@@ -64,7 +65,7 @@ def test_settings_from_vault(mock_vault, mock_vault_config):
     assert settings.VERITAS_PUBLIC_KEY == "vault-pub-key"
 
 
-def test_vault_failure_handling_dev(mock_vault, mock_logger, mock_vault_config):
+def test_vault_failure_handling_dev(mock_vault: Any, mock_logger: Any, mock_vault_config: Any) -> None:
     get_settings.cache_clear()
 
     mock_vault.side_effect = Exception("Connection refused")
@@ -76,7 +77,7 @@ def test_vault_failure_handling_dev(mock_vault, mock_logger, mock_vault_config):
     mock_logger.warning.assert_called()
 
 
-def test_vault_failure_handling_prod(mock_vault, mock_logger, mock_vault_config):
+def test_vault_failure_handling_prod(mock_vault: Any, mock_logger: Any, mock_vault_config: Any) -> None:
     get_settings.cache_clear()
 
     # Mock environment variable

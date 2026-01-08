@@ -12,17 +12,17 @@ app.include_router(router)
 
 
 @pytest.fixture
-def client():
+def client() -> TestClient:
     return TestClient(app)
 
 
-def test_liveness(client):
+def test_liveness(client: TestClient) -> None:
     response = client.get("/health/live")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-def test_readiness_success(client):
+def test_readiness_success(client: TestClient) -> None:
     mock_ledger = AsyncMock()
     mock_ledger.connect.return_value = None
     mock_vault = MagicMock()
@@ -39,7 +39,7 @@ def test_readiness_success(client):
     app.dependency_overrides = {}
 
 
-def test_readiness_failure_redis(client):
+def test_readiness_failure_redis(client: TestClient) -> None:
     mock_ledger = AsyncMock()
     mock_ledger.connect.side_effect = Exception("Redis down")
 
@@ -51,7 +51,7 @@ def test_readiness_failure_redis(client):
     app.dependency_overrides = {}
 
 
-def test_readiness_failure_vault(client):
+def test_readiness_failure_vault(client: TestClient) -> None:
     mock_ledger = AsyncMock()
     mock_ledger.connect.return_value = None
     mock_vault = MagicMock()

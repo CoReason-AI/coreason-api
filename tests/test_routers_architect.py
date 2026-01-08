@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -16,12 +17,12 @@ app.include_router(router)
 
 
 @pytest.fixture
-def client():
+def client() -> TestClient:
     return TestClient(app)
 
 
 @pytest.fixture
-def mock_identity():
+def mock_identity() -> Any:
     mock = MagicMock()
     mock_user = UserContext(
         sub="user-1", email="test@test.com", project_context="proj-1", permissions=["generate:agent"]
@@ -31,21 +32,21 @@ def mock_identity():
 
 
 @pytest.fixture
-def mock_gatekeeper():
+def mock_gatekeeper() -> Any:
     return MagicMock(spec=Gatekeeper)
 
 
 @pytest.fixture
-def mock_session_manager():
+def mock_session_manager() -> Any:
     return MagicMock(spec=SessionManager)
 
 
 @pytest.fixture
-def mock_trust_anchor():
+def mock_trust_anchor() -> Any:
     return MagicMock(spec=TrustAnchor)
 
 
-def test_generate_agent(client, mock_identity, mock_gatekeeper):
+def test_generate_agent(client: TestClient, mock_identity: Any, mock_gatekeeper: Any) -> None:
     app.dependency_overrides[get_identity_manager] = lambda: mock_identity
     app.dependency_overrides[get_gatekeeper] = lambda: mock_gatekeeper
 
@@ -61,7 +62,7 @@ def test_generate_agent(client, mock_identity, mock_gatekeeper):
     app.dependency_overrides = {}
 
 
-def test_simulate_agent(client, mock_identity, mock_session_manager):
+def test_simulate_agent(client: TestClient, mock_identity: Any, mock_session_manager: Any) -> None:
     app.dependency_overrides[get_identity_manager] = lambda: mock_identity
     app.dependency_overrides[get_session_manager] = lambda: mock_session_manager
 
@@ -79,7 +80,7 @@ def test_simulate_agent(client, mock_identity, mock_session_manager):
     app.dependency_overrides = {}
 
 
-def test_publish_agent_success(client, mock_identity, mock_trust_anchor):
+def test_publish_agent_success(client: TestClient, mock_identity: Any, mock_trust_anchor: Any) -> None:
     app.dependency_overrides[get_identity_manager] = lambda: mock_identity
     app.dependency_overrides[get_trust_anchor] = lambda: mock_trust_anchor
 
@@ -102,7 +103,7 @@ def test_publish_agent_success(client, mock_identity, mock_trust_anchor):
     app.dependency_overrides = {}
 
 
-def test_publish_agent_isomorphism_fail(client, mock_identity, mock_trust_anchor):
+def test_publish_agent_isomorphism_fail(client: TestClient, mock_identity: Any, mock_trust_anchor: Any) -> None:
     app.dependency_overrides[get_identity_manager] = lambda: mock_identity
     app.dependency_overrides[get_trust_anchor] = lambda: mock_trust_anchor
 
@@ -118,7 +119,7 @@ def test_publish_agent_isomorphism_fail(client, mock_identity, mock_trust_anchor
     app.dependency_overrides = {}
 
 
-def test_publish_agent_manifest_fail(client, mock_identity, mock_trust_anchor):
+def test_publish_agent_manifest_fail(client: TestClient, mock_identity: Any, mock_trust_anchor: Any) -> None:
     app.dependency_overrides[get_identity_manager] = lambda: mock_identity
     app.dependency_overrides[get_trust_anchor] = lambda: mock_trust_anchor
 
@@ -139,7 +140,7 @@ def test_publish_agent_manifest_fail(client, mock_identity, mock_trust_anchor):
     app.dependency_overrides = {}
 
 
-def test_publish_agent_anchor_fail(client, mock_identity, mock_trust_anchor):
+def test_publish_agent_anchor_fail(client: TestClient, mock_identity: Any, mock_trust_anchor: Any) -> None:
     app.dependency_overrides[get_identity_manager] = lambda: mock_identity
     app.dependency_overrides[get_trust_anchor] = lambda: mock_trust_anchor
 

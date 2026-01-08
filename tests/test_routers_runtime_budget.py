@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -22,12 +23,12 @@ app.include_router(router)
 
 
 @pytest.fixture
-def client():
+def client() -> TestClient:
     return TestClient(app)
 
 
 @pytest.fixture
-def mock_identity():
+def mock_identity() -> Any:
     mock = MagicMock()
     mock_user = UserContext(
         sub="user-123", email="test@coreason.ai", project_context="proj-1", permissions=["run:agent"]
@@ -37,28 +38,30 @@ def mock_identity():
 
 
 @pytest.fixture
-def mock_budget():
+def mock_budget() -> Any:
     mock = AsyncMock()
     return mock
 
 
 @pytest.fixture
-def mock_gatekeeper():
+def mock_gatekeeper() -> Any:
     mock = MagicMock(spec=Gatekeeper)
     return mock
 
 
 @pytest.fixture
-def mock_auditor():
+def mock_auditor() -> Any:
     return MagicMock(spec=Auditor)
 
 
 @pytest.fixture
-def mock_session():
+def mock_session() -> Any:
     return MagicMock(spec=SessionManager)
 
 
-def test_run_agent_budget_exceeded(client, mock_identity, mock_budget, mock_gatekeeper, mock_auditor, mock_session):
+def test_run_agent_budget_exceeded(
+    client: TestClient, mock_identity: Any, mock_budget: Any, mock_gatekeeper: Any, mock_auditor: Any, mock_session: Any
+) -> None:
     app.dependency_overrides[get_identity_manager] = lambda: mock_identity
     app.dependency_overrides[get_budget_guard] = lambda: mock_budget
     app.dependency_overrides[get_gatekeeper] = lambda: mock_gatekeeper
@@ -82,8 +85,8 @@ def test_run_agent_budget_exceeded(client, mock_identity, mock_budget, mock_gate
 
 
 def test_run_agent_budget_check_failure_generic(
-    client, mock_identity, mock_budget, mock_gatekeeper, mock_auditor, mock_session
-):
+    client: TestClient, mock_identity: Any, mock_budget: Any, mock_gatekeeper: Any, mock_auditor: Any, mock_session: Any
+) -> None:
     app.dependency_overrides[get_identity_manager] = lambda: mock_identity
     app.dependency_overrides[get_budget_guard] = lambda: mock_budget
     app.dependency_overrides[get_gatekeeper] = lambda: mock_gatekeeper
@@ -101,7 +104,9 @@ def test_run_agent_budget_check_failure_generic(
     app.dependency_overrides = {}
 
 
-def test_run_agent_budget_success(client, mock_identity, mock_budget, mock_gatekeeper, mock_auditor, mock_session):
+def test_run_agent_budget_success(
+    client: TestClient, mock_identity: Any, mock_budget: Any, mock_gatekeeper: Any, mock_auditor: Any, mock_session: Any
+) -> None:
     app.dependency_overrides[get_identity_manager] = lambda: mock_identity
     app.dependency_overrides[get_budget_guard] = lambda: mock_budget
     app.dependency_overrides[get_gatekeeper] = lambda: mock_gatekeeper
@@ -126,8 +131,8 @@ def test_run_agent_budget_success(client, mock_identity, mock_budget, mock_gatek
 
 
 def test_run_agent_budget_exceeded_bool_false(
-    client, mock_identity, mock_budget, mock_gatekeeper, mock_auditor, mock_session
-):
+    client: TestClient, mock_identity: Any, mock_budget: Any, mock_gatekeeper: Any, mock_auditor: Any, mock_session: Any
+) -> None:
     # Test case where check returns False instead of raising exception
     app.dependency_overrides[get_identity_manager] = lambda: mock_identity
     app.dependency_overrides[get_budget_guard] = lambda: mock_budget

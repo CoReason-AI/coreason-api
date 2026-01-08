@@ -1,3 +1,4 @@
+from typing import Any, Generator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -20,14 +21,14 @@ from coreason_api.main import app
 
 
 @pytest.fixture
-def client():
+def client() -> Generator[TestClient, None, None]:
     # Using context manager to ensure lifespan events run
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
 
 @pytest.fixture
-def mock_deps():
+def mock_deps() -> dict[str, Any]:
     # Setup all mocks
     identity = MagicMock()
     user = UserContext(sub="user-1", email="test@test.com", project_context="proj-1", permissions=[])
@@ -54,20 +55,20 @@ def mock_deps():
     }
 
 
-def test_health_check(client):
+def test_health_check(client: TestClient) -> None:
     response = client.get("/health/live")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-def test_readiness_check(client, mock_deps):
+def test_readiness_check(client: TestClient, mock_deps: dict[str, Any]) -> None:
     app.dependency_overrides[get_redis_ledger] = lambda: mock_deps["ledger"]
     response = client.get("/health/ready")
     assert response.status_code == 200
     app.dependency_overrides = {}
 
 
-def test_global_exception_handler(client):
+def test_global_exception_handler(client: TestClient) -> None:
     # Route that triggers unhandled exception
 
     # We define a temporary route on the app to force an exception
@@ -76,7 +77,7 @@ def test_global_exception_handler(client):
     router = APIRouter()
 
     @router.get("/force-error")
-    def force_error():
+    def force_error() -> None:
         raise ValueError("Boom")
 
     app.include_router(router)
@@ -86,7 +87,7 @@ def test_global_exception_handler(client):
     assert response.json()["detail"] == "Internal Server Error"
 
 
-def test_full_flow_integration(client, mock_deps):
+def test_full_flow_integration(client: TestClient, mock_deps: dict[str, Any]) -> None:
     # Test one full flow through main app entry point
     app.dependency_overrides[get_identity_manager] = lambda: mock_deps["identity"]
     app.dependency_overrides[get_budget_guard] = lambda: mock_deps["budget"]

@@ -9,13 +9,15 @@ router = APIRouter()
 
 
 @router.get("/health/live", status_code=status.HTTP_200_OK)
-async def liveness():
+async def liveness() -> dict[str, str]:
     """Returns 200 OK if Uvicorn is running."""
     return {"status": "ok"}
 
 
 @router.get("/health/ready", status_code=status.HTTP_200_OK)
-async def readiness(vault: VaultManager = Depends(get_vault_manager), ledger: RedisLedger = Depends(get_redis_ledger)):
+async def readiness(
+    vault: VaultManager = Depends(get_vault_manager), ledger: RedisLedger = Depends(get_redis_ledger)
+) -> dict[str, str]:
     """Returns 200 OK if dependencies are reachable."""
 
     # Check Redis

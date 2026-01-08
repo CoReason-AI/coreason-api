@@ -9,6 +9,7 @@
 # Source Code: https://github.com/CoReason-AI/coreason_api
 
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -20,7 +21,7 @@ from coreason_api.utils.logger import logger
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Load settings/vault on startup
     settings = get_settings()
     logger.info(f"Starting Coreason API (Env: {settings.APP_ENV})")
@@ -47,7 +48,7 @@ app.include_router(architect.router, tags=["Architect"])
 
 # Global Exception Handlers
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.exception(f"Unhandled exception: {exc}")
     # Hide internal details
     return JSONResponse(

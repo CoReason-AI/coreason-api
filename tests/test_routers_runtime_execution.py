@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -24,12 +25,12 @@ app.include_router(router)
 
 
 @pytest.fixture
-def client():
+def client() -> TestClient:
     return TestClient(app)
 
 
 @pytest.fixture
-def mock_deps():
+def mock_deps() -> dict[str, Any]:
     identity = MagicMock()
     user = UserContext(sub="user-1", email="test@test.com", project_context="proj-1", permissions=[])
     identity.validate_token.return_value = user
@@ -44,7 +45,7 @@ def mock_deps():
     return {"identity": identity, "budget": budget, "gatekeeper": gatekeeper, "auditor": auditor, "session": session}
 
 
-def test_run_agent_full_flow_success(client, mock_deps):
+def test_run_agent_full_flow_success(client: TestClient, mock_deps: dict[str, Any]) -> None:
     app.dependency_overrides[get_identity_manager] = lambda: mock_deps["identity"]
     app.dependency_overrides[get_budget_guard] = lambda: mock_deps["budget"]
     app.dependency_overrides[get_gatekeeper] = lambda: mock_deps["gatekeeper"]
@@ -65,7 +66,7 @@ def test_run_agent_full_flow_success(client, mock_deps):
     app.dependency_overrides = {}
 
 
-def test_run_agent_audit_failure_swallowed(client, mock_deps):
+def test_run_agent_audit_failure_swallowed(client: TestClient, mock_deps: dict[str, Any]) -> None:
     app.dependency_overrides[get_identity_manager] = lambda: mock_deps["identity"]
     app.dependency_overrides[get_budget_guard] = lambda: mock_deps["budget"]
     app.dependency_overrides[get_gatekeeper] = lambda: mock_deps["gatekeeper"]
@@ -82,7 +83,7 @@ def test_run_agent_audit_failure_swallowed(client, mock_deps):
     app.dependency_overrides = {}
 
 
-def test_run_agent_settlement_failure_swallowed(client, mock_deps):
+def test_run_agent_settlement_failure_swallowed(client: TestClient, mock_deps: dict[str, Any]) -> None:
     app.dependency_overrides[get_identity_manager] = lambda: mock_deps["identity"]
     app.dependency_overrides[get_budget_guard] = lambda: mock_deps["budget"]
     app.dependency_overrides[get_gatekeeper] = lambda: mock_deps["gatekeeper"]

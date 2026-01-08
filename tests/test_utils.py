@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 
-def test_logger_directory_creation_real_fs():
+def test_logger_directory_creation_real_fs() -> None:
     # Remove module to force reload
     if "coreason_api.utils.logger" in sys.modules:
         del sys.modules["coreason_api.utils.logger"]
@@ -18,7 +18,7 @@ def test_logger_directory_creation_real_fs():
     assert log_path.is_dir()
 
 
-def test_logger_directory_exists_real_fs():
+def test_logger_directory_exists_real_fs() -> None:
     # Setup: ensure dir exists
     log_path = Path("logs")
     log_path.mkdir(exist_ok=True)

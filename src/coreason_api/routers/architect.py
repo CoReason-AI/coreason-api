@@ -29,7 +29,7 @@ async def generate_agent(
     request: GenerateAgentRequest,
     user: UserContext = Depends(verify_auth),
     gatekeeper: Gatekeeper = Depends(get_gatekeeper),
-):
+) -> GenerateAgentResponse:
     """
     Vibe Coding: Generate Agent Code.
     """
@@ -55,7 +55,7 @@ async def simulate_agent(
     request: SimulateAgentRequest,
     user: UserContext = Depends(verify_auth),
     session_manager: SessionManager = Depends(get_session_manager),
-):
+) -> SimulateAgentResponse:
     """
     Test Arena: Execute in-memory draft.
     """
@@ -79,7 +79,7 @@ async def publish_agent(
     request: PublishAgentRequest,
     user: UserContext = Depends(verify_auth),
     trust_anchor: TrustAnchor = Depends(get_trust_anchor),
-):
+) -> PublishAgentResponse:
     """
     Publishing: Validate and Seal.
     """

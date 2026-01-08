@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -23,39 +24,39 @@ app.include_router(router)
 
 
 @pytest.fixture
-def client():
+def client() -> TestClient:
     return TestClient(app)
 
 
 @pytest.fixture
-def mock_gatekeeper():
+def mock_gatekeeper() -> Any:
     return MagicMock(spec=Gatekeeper)
 
 
 @pytest.fixture
-def mock_auditor():
+def mock_auditor() -> Any:
     return MagicMock(spec=Auditor)
 
 
 @pytest.fixture
-def mock_budget():
+def mock_budget() -> Any:
     m = MagicMock(spec=BudgetGuard)
     m.check.return_value = True
     return m
 
 
 @pytest.fixture
-def mock_session():
+def mock_session() -> Any:
     return MagicMock(spec=SessionManager)
 
 
-def test_run_agent_auth_missing(client):
+def test_run_agent_auth_missing(client: TestClient) -> None:
     response = client.post("/v1/run/agent-123", json={"input_data": {}})
     assert response.status_code == 401
     assert response.json()["detail"] == "Missing Authorization header"
 
 
-def test_run_agent_auth_invalid(client):
+def test_run_agent_auth_invalid(client: TestClient) -> None:
     mock_identity = MagicMock()
     mock_identity.validate_token.side_effect = Exception("Invalid signature")
 
@@ -67,7 +68,9 @@ def test_run_agent_auth_invalid(client):
     app.dependency_overrides = {}
 
 
-def test_run_agent_auth_success(client, mock_gatekeeper, mock_auditor, mock_budget, mock_session):
+def test_run_agent_auth_success(
+    client: TestClient, mock_gatekeeper: Any, mock_auditor: Any, mock_budget: Any, mock_session: Any
+) -> None:
     mock_identity = MagicMock()
     mock_user = UserContext(
         sub="user-123", email="test@coreason.ai", project_context="proj-1", permissions=["run:agent"]

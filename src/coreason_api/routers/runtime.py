@@ -58,7 +58,7 @@ async def run_agent(
     auditor: Auditor = Depends(get_auditor),
     session_manager: SessionManager = Depends(get_session_manager),
     gatekeeper: Gatekeeper = Depends(get_gatekeeper),
-):
+) -> RunAgentResponse:
     """
     Execute an agent.
     Chain of Command: Auth -> Budget Check -> Audit Start -> Execution -> Settlement -> Audit End.

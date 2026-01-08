@@ -16,7 +16,7 @@ from coreason_api.dependencies import (
 
 
 @pytest.fixture
-def mock_settings():
+def mock_settings() -> Settings:
     return Settings(
         APP_ENV="test",
         IDENTITY_DOMAIN="test-domain",
@@ -27,7 +27,7 @@ def mock_settings():
     )
 
 
-def test_get_vault_manager():
+def test_get_vault_manager() -> None:
     get_vault_manager.cache_clear()
     with (
         patch("coreason_api.dependencies.VaultManager") as MockVault,
@@ -42,7 +42,7 @@ def test_get_vault_manager():
         assert mgr is mgr2
 
 
-def test_get_identity_manager(mock_settings):
+def test_get_identity_manager(mock_settings: Settings) -> None:
     # Not cached anymore
     with (
         patch("coreason_api.dependencies.IdentityManager") as MockId,
@@ -54,7 +54,7 @@ def test_get_identity_manager(mock_settings):
         MockId.assert_called_with(config=MockConfig.return_value)
 
 
-def test_get_redis_ledger(mock_settings):
+def test_get_redis_ledger(mock_settings: Settings) -> None:
     # Not cached anymore
     with patch("coreason_api.dependencies.RedisLedger") as MockLedger:
         ledger = get_redis_ledger(mock_settings)
@@ -62,7 +62,7 @@ def test_get_redis_ledger(mock_settings):
         MockLedger.assert_called_with(redis_url="redis://test:6379")
 
 
-def test_get_budget_guard(mock_settings):
+def test_get_budget_guard(mock_settings: Settings) -> None:
     # Not cached anymore
 
     mock_ledger_instance = MagicMock()
@@ -83,7 +83,7 @@ def test_get_budget_guard(mock_settings):
         MockGuard.assert_called_with(config=MockConfig.return_value, ledger=mock_ledger_instance)
 
 
-def test_get_auditor():
+def test_get_auditor() -> None:
     get_auditor.cache_clear()
     with patch("coreason_api.dependencies.Auditor") as MockAuditor:
         aud = get_auditor()
@@ -91,7 +91,7 @@ def test_get_auditor():
         MockAuditor.assert_called_with(service_name="coreason-api")
 
 
-def test_get_gatekeeper(mock_settings):
+def test_get_gatekeeper(mock_settings: Settings) -> None:
     # Not cached anymore
     with patch("coreason_api.dependencies.Gatekeeper") as MockGate:
         gate = get_gatekeeper(mock_settings)
@@ -99,14 +99,14 @@ def test_get_gatekeeper(mock_settings):
         MockGate.assert_called_with(public_key_store="test-pub-key")
 
 
-def test_get_trust_anchor():
+def test_get_trust_anchor() -> None:
     get_trust_anchor.cache_clear()
     with patch("coreason_api.dependencies.TrustAnchor") as MockAnchor:
         anchor = get_trust_anchor()
         assert anchor == MockAnchor.return_value
 
 
-def test_get_session_manager():
+def test_get_session_manager() -> None:
     get_session_manager.cache_clear()
     with patch("coreason_api.dependencies.SessionManager") as MockSM:
         sm = get_session_manager()

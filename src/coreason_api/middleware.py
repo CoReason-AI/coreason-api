@@ -5,7 +5,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 
-class TraceIDMiddleware(BaseHTTPMiddleware):
+class TraceIDMiddleware(BaseHTTPMiddleware):  # type: ignore[misc]
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         trace_id = request.headers.get("X-Trace-ID")
         if not trace_id:
