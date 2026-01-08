@@ -1,9 +1,9 @@
 from typing import Any, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, SecretStr
+from pydantic import Field
 from coreason_vault.main import VaultManager
 from coreason_api.utils.logger import logger
-import os
+from functools import lru_cache
 
 class Settings(BaseSettings):
     # App Config
@@ -49,8 +49,6 @@ class Settings(BaseSettings):
         except Exception as e:
             # If VaultManager init fails
             logger.warning(f"VaultManager unreachable: {e}. using environment variables.")
-
-from functools import lru_cache
 
 @lru_cache
 def get_settings() -> Settings:

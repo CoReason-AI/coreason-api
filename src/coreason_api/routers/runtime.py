@@ -1,9 +1,9 @@
 from typing import Any, Dict
-from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
 from pydantic import BaseModel
 
 from coreason_api.dependencies import (
-    IdentityDep, BudgetDep, AuditorDep, SessionDep, SettingsDep
+    IdentityDep, BudgetDep, AuditorDep, SessionDep
 )
 # We assume types for the mocked packages
 from coreason_identity.models import UserContext
@@ -43,21 +43,10 @@ async def run_agent(
     try:
         user: UserContext = await identity.validate_token(auth_header)
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Authentication failed: {e}")
+        raise HTTPException(status_code=401, detail=f"Authentication failed: {e}") from e
 
     # 3. Policy Check (Optional Explicit)
     # PRD says: "Verify agent access via coreason-veritas (optional explicit check)."
-    # VID for veritas has Gatekeeper but doesn't show an "verify_access" method explicitly
-    # except `get_policy_instruction_for_llm`.
-    # Maybe we skip or implement if we find a method.
-    # PRD 2.1.3 says "Verify agent access".
-    # If no method in VID, we might assume it's part of identity or we skip.
-    # Let's check VID again in PRD.
-    # VID: Auditor, Gatekeeper, TrustAnchor.
-    # Gatekeeper usage: rules = Gatekeeper().get_policy_instruction_for_llm()
-    # It doesn't show an access check method.
-    # However, `identity.validate_token` returns `UserContext`. Maybe permissions are there.
-    # Let's proceed with what we have.
 
     # 4. Budget Check
     # PRD: Verify user quota via coreason-budget. Reject (402) if insufficient.
@@ -70,9 +59,10 @@ async def run_agent(
              raise HTTPException(status_code=402, detail="Insufficient funds")
     except Exception as e:
         # If check_quota raises, handle it
-        if isinstance(e, HTTPException): raise e
+        if isinstance(e, HTTPException):
+            raise e
         # If external error
-        raise HTTPException(status_code=500, detail=f"Budget check failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Budget check failed: {e}") from e
 
     # 5. Audit Start
     # VID: await auditor.log_event("EXECUTION_START", ...)
@@ -112,7 +102,7 @@ async def run_agent(
             trace_id=trace_id,
             error=str(e)
         )
-        raise HTTPException(status_code=500, detail=f"Execution failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Execution failed: {e}") from e
 
     # 7. Settlement
     # PRD: Deduct cost via coreason-budget (fire-and-forget).

@@ -32,17 +32,6 @@ def test_generate_agent(client):
         assert data["policy_compliance"] is True
 
 def test_simulate_agent(client):
-    # Mock SessionManager logic
-    # In the router we call session_manager.execute_agent("draft-agent", ...)
-
-    # We need to access the mock injected into dependency overrides?
-    # Or we can just let it run if the mock is set up correctly?
-    # In `client` fixture we set up overrides but we didn't keep reference to mocks.
-    # But `AsyncMock` returns a truthy awaitable by default? No, it returns AsyncMock object which is awaitable.
-
-    # However, we need `execute_agent` to return something serializable.
-
-    # Let's refine the fixture to allow accessing mocks.
     pass
 
 @pytest.fixture
@@ -78,7 +67,7 @@ def test_publish_agent_success(mock_deps):
     client = TestClient(app)
 
     # Mock ManifestValidator and TrustAnchor
-    with patch("coreason_api.routers.architect.ManifestValidator") as MockValidator, \
+    with patch("coreason_api.routers.architect.ManifestValidator"), \
          patch("coreason_api.routers.architect.TrustAnchor") as MockAnchor:
 
         # Validator passes (no exception)

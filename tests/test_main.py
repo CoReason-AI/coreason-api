@@ -7,23 +7,11 @@ from unittest.mock import patch
 client = TestClient(app)
 
 def test_global_exception_handler():
-    # We need to trigger a 500 error.
-    # The previous attempt failed because TestClient raises the exception if it's not handled?
-    # No, TestClient normally catches exceptions if they are handled by app.
-    # The traceback shows `ValueError: Oops` bubbling up.
-    # This means `app` did NOT catch it?
-    # Or `TestClient` is configured to raise_server_exceptions=True by default?
-    # Yes, Starlette TestClient raises server exceptions by default.
+    # We need to disable raise_server_exceptions to let the app handle it.
 
-    # We need to disable that.
-
-    client_safe = TestClient(app, raise_server_exceptions=False)
-
-    # We patch a route onto the app temporarily.
-    # But since app is global in main.py, we might pollute it.
-    # Better to create a new app instance or clean up.
-    # But `create_app` is available.
-
+    # We create a new app instance to avoid polluting the global one?
+    # Actually, we can just use the global app if we attach a route.
+    # But let's be safe.
     from coreason_api.main import create_app
     test_app = create_app()
 

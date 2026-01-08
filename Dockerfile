@@ -4,15 +4,15 @@
 FROM python:3.12-slim-bookworm
 
 # Set environment variables
-# PYTHONDONTWRITEBYTECODE: Prevents Python from writing pyc files to disc
-# PYTHONUNBUFFERED: Prevents Python from buffering stdout and stderr
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     POETRY_VERSION=1.8.3 \
-    POETRY_HOME="/opt/poetry" \
-    PATH="$POETRY_HOME/bin:$PATH"
+    POETRY_HOME="/opt/poetry"
+
+ENV PATH="$POETRY_HOME/bin:$PATH"
 
 # Install system dependencies
+# hadolint ignore=DL3008
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \
@@ -20,31 +20,32 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
 # Create user 'coreason'
-RUN groupadd -r coreason && useradd -r -g coreason coreason
-
 # Set work directory
+# Copy dependency definition
+# Install dependencies
+# Copy project files
+# Install project
+# Change ownership
+RUN groupadd -r coreason && useradd -r -g coreason coreason \
+    && mkdir /app \
+    && chown coreason:coreason /app
+
 WORKDIR /app
 
-# Copy dependency definition
 COPY pyproject.toml poetry.lock* ./
 
-# Install dependencies (no dev dependencies)
-# We use --no-root because we copy source code later
 RUN poetry config virtualenvs.create false \
     && poetry install --no-root --only main --no-interaction --no-ansi
 
-# Copy project files
 COPY src/ src/
 COPY README.md LICENSE ./
 
-# Install the project itself
-RUN poetry install --only main --no-interaction --no-ansi
-
-# Change ownership to non-root user
-RUN chown -R coreason:coreason /app
+RUN poetry install --only main --no-interaction --no-ansi \
+    && chown -R coreason:coreason /app
 
 # Switch to non-root user
 USER coreason
@@ -53,5 +54,4 @@ USER coreason
 EXPOSE 8000
 
 # Command to run the application
-# We use uvicorn with host 0.0.0.0 to be accessible outside container
 CMD ["uvicorn", "coreason_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
