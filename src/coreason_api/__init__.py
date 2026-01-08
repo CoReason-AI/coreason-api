@@ -8,14 +8,7 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_api
 
-"""
-actual FastAPI application that coordinates the ecosystem
-"""
+# Expose main app
+from .main import app
 
-__version__ = "0.1.0"
-__author__ = "Gowtham A Rao"
-__email__ = "gowtham.rao@coreason.ai"
-
-from .main import hello_world
-
-__all__ = ["hello_world"]
+__all__ = ["app"]
