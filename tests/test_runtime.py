@@ -1,18 +1,19 @@
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, AsyncMock
-from coreason_api.routers.runtime import router
-from coreason_api.dependencies import (
-    get_identity_manager, get_budget_guard, get_auditor, get_session_manager
-)
+
+from coreason_api.dependencies import get_auditor, get_budget_guard, get_identity_manager, get_session_manager
 from coreason_api.middleware import TraceIDMiddleware
+from coreason_api.routers.runtime import router
+
 
 # Define a minimal UserContext mock since we import it for type hinting
 class MockUserContext:
     def __init__(self, user_id):
         self.user_id = user_id
+
 
 @pytest.fixture
 def mock_app_dependencies():
@@ -32,6 +33,7 @@ def mock_app_dependencies():
 
     return app, mock_identity, mock_budget, mock_auditor, mock_session
 
+
 @pytest.mark.asyncio
 async def test_run_agent_success(mock_app_dependencies):
     app, mock_identity, mock_budget, mock_auditor, mock_session = mock_app_dependencies
@@ -42,10 +44,7 @@ async def test_run_agent_success(mock_app_dependencies):
     mock_budget.check_quota.return_value = True
     mock_session.execute_agent.return_value = {"output": "success"}
 
-    payload = {
-        "input_data": {"query": "test"},
-        "context": {"env": "prod"}
-    }
+    payload = {"input_data": {"query": "test"}, "context": {"env": "prod"}}
     headers = {"Authorization": "Bearer token123"}
 
     response = client.post("/v1/run/agent-007", json=payload, headers=headers)
@@ -81,13 +80,14 @@ async def test_run_agent_success(mock_app_dependencies):
     assert mock_auditor.log_event.call_count >= 2
     assert mock_auditor.log_event.call_args_list[-1].args[0] == "EXECUTION_COMPLETE"
 
+
 @pytest.mark.asyncio
 async def test_run_agent_insufficient_funds(mock_app_dependencies):
     app, mock_identity, mock_budget, _, _ = mock_app_dependencies
     client = TestClient(app)
 
     mock_identity.validate_token.return_value = MockUserContext("user-123")
-    mock_budget.check_quota.return_value = False # Deny
+    mock_budget.check_quota.return_value = False  # Deny
 
     payload = {"input_data": {}}
     headers = {"Authorization": "Bearer token"}
@@ -96,6 +96,7 @@ async def test_run_agent_insufficient_funds(mock_app_dependencies):
 
     assert response.status_code == 402
     assert response.json()["detail"] == "Insufficient funds"
+
 
 @pytest.mark.asyncio
 async def test_run_agent_unauthorized(mock_app_dependencies):

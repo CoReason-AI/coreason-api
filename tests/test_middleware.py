@@ -1,8 +1,8 @@
-
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
 from coreason_api.middleware import TraceIDMiddleware
+
 
 def test_trace_id_middleware_generates_id():
     app = FastAPI()
@@ -18,6 +18,7 @@ def test_trace_id_middleware_generates_id():
     assert response.status_code == 200
     assert "X-Trace-ID" in response.headers
     assert len(response.headers["X-Trace-ID"]) > 0
+
 
 def test_trace_id_middleware_preserves_id():
     app = FastAPI()

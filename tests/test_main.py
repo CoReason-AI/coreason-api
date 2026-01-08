@@ -1,10 +1,9 @@
-
-import pytest
 from fastapi.testclient import TestClient
+
 from coreason_api.main import app
-from unittest.mock import patch
 
 client = TestClient(app)
+
 
 def test_global_exception_handler():
     # We need to disable raise_server_exceptions to let the app handle it.
@@ -13,6 +12,7 @@ def test_global_exception_handler():
     # Actually, we can just use the global app if we attach a route.
     # But let's be safe.
     from coreason_api.main import create_app
+
     test_app = create_app()
 
     @test_app.get("/force_error")
@@ -25,6 +25,8 @@ def test_global_exception_handler():
     assert response.status_code == 500
     assert response.json() == {"detail": "Internal Server Error"}
 
+
 def test_hello_world():
     from coreason_api.main import hello_world
+
     assert hello_world() == "Hello World!"

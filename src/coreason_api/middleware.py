@@ -1,8 +1,10 @@
-
 import uuid
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+
 from coreason_api.utils.logger import logger
+
 
 class TraceIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
@@ -20,7 +22,7 @@ class TraceIDMiddleware(BaseHTTPMiddleware):
         # It doesn't explicitly mandate log context binding, but it's good practice.
 
         with logger.contextualize(trace_id=trace_id):
-             response = await call_next(request)
+            response = await call_next(request)
 
         response.headers["X-Trace-ID"] = trace_id
         return response

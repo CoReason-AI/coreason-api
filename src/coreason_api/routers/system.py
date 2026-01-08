@@ -1,7 +1,9 @@
-from fastapi import APIRouter, status, HTTPException
-from coreason_api.dependencies import VaultDep, IdentityDep
+from fastapi import APIRouter, HTTPException, status
+
+from coreason_api.dependencies import IdentityDep, VaultDep
 
 router = APIRouter(prefix="/health", tags=["system"])
+
 
 @router.get("/live", status_code=status.HTTP_200_OK)
 async def liveness_probe() -> dict[str, str]:
@@ -9,6 +11,7 @@ async def liveness_probe() -> dict[str, str]:
     Returns 200 OK if the service (Uvicorn) is running.
     """
     return {"status": "ok"}
+
 
 @router.get("/ready", status_code=status.HTTP_200_OK)
 async def readiness_probe(

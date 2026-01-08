@@ -1,16 +1,16 @@
+from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
-import sys
 
 # Ensure mocks are reset
 # Note: In a real scenario we'd use a better mocking strategy,
 # but here we rely on sys.modules patching in conftest + manual resets.
 
+
 def test_liveness_probe():
     from coreason_api.routers.system import router
+
     app = FastAPI()
     app.include_router(router)
     client = TestClient(app)
@@ -19,11 +19,11 @@ def test_liveness_probe():
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
+
 def test_readiness_probe():
     # We need to mock dependencies
     with patch("coreason_api.dependencies.get_vault_manager") as mock_get_vault:
         with patch("coreason_api.dependencies.get_identity_manager") as mock_get_identity:
-
             mock_vault = MagicMock()
             mock_identity = MagicMock()
 
@@ -31,6 +31,7 @@ def test_readiness_probe():
             mock_get_identity.return_value = mock_identity
 
             from coreason_api.routers.system import router
+
             app = FastAPI()
             app.include_router(router)
 
@@ -41,9 +42,10 @@ def test_readiness_probe():
             # Let's do it the standard way.
             pass
 
+
 def test_readiness_probe_standard_way():
+    from coreason_api.dependencies import get_identity_manager, get_vault_manager
     from coreason_api.routers.system import router
-    from coreason_api.dependencies import get_vault_manager, get_identity_manager
 
     app = FastAPI()
     app.include_router(router)
