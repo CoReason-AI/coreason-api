@@ -1,30 +1,30 @@
-import shutil
-import sys
-from pathlib import Path
+import pytest
+from unittest.mock import patch, MagicMock
+from coreason_api.utils.logger import setup_logger
 
+def test_setup_logger_creates_directory() -> None:
+    # Mock Path to verify mkdir is called
+    with patch("coreason_api.utils.logger.Path") as MockPath:
+        mock_path_obj = MockPath.return_value
+        mock_path_obj.exists.return_value = False
 
-def test_logger_directory_creation_real_fs() -> None:
-    # Remove module to force reload
-    if "coreason_api.utils.logger" in sys.modules:
-        del sys.modules["coreason_api.utils.logger"]
+        # Mock logger to avoid adding real sinks during test
+        with patch("coreason_api.utils.logger.logger") as mock_logger:
+            setup_logger()
 
-    log_path = Path("logs")
-    if log_path.exists():
-        shutil.rmtree(log_path)
+            # Verify mkdir called
+            mock_path_obj.mkdir.assert_called_with(parents=True, exist_ok=True)
 
-    assert not log_path.exists()
+            # Verify logger.remove and logger.add called
+            mock_logger.remove.assert_called()
+            assert mock_logger.add.call_count == 2
 
-    assert log_path.exists()
-    assert log_path.is_dir()
+def test_setup_logger_directory_exists() -> None:
+    with patch("coreason_api.utils.logger.Path") as MockPath:
+        mock_path_obj = MockPath.return_value
+        mock_path_obj.exists.return_value = True
 
+        with patch("coreason_api.utils.logger.logger"):
+            setup_logger()
 
-def test_logger_directory_exists_real_fs() -> None:
-    # Setup: ensure dir exists
-    log_path = Path("logs")
-    log_path.mkdir(exist_ok=True)
-
-    # Reload
-    if "coreason_api.utils.logger" in sys.modules:
-        del sys.modules["coreason_api.utils.logger"]
-
-    assert log_path.exists()
+            mock_path_obj.mkdir.assert_not_called()
