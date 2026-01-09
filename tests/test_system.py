@@ -86,3 +86,30 @@ def test_health_ready_budget_failure(client: TestClient, mock_budget: AsyncMock)
     data = response.json()
     assert data["detail"]["status"] == "unhealthy"
     assert "DB unreachable" in data["detail"]["details"]["budget"]
+
+
+def test_health_ready_multiple_failures(client: TestClient, mock_vault: MagicMock, mock_budget: AsyncMock) -> None:
+    # Fail both Vault and Budget
+    mock_vault.get_secret.side_effect = Exception("Vault Down")
+    mock_budget.check_quota.side_effect = Exception("Redis Down")
+
+    response = client.get("/health/ready")
+    assert response.status_code == 503
+    data = response.json()
+    assert data["detail"]["status"] == "unhealthy"
+    details = data["detail"]["details"]
+    assert "Vault Down" in details["vault"]
+    assert "Redis Down" in details["budget"]
+    # Identity should be fine (or not in dict if skipped? logic runs all)
+    assert "identity" not in details
+
+
+def test_health_ready_unexpected_exception(client: TestClient, mock_identity: AsyncMock) -> None:
+    # Simulate a very generic/unexpected error
+    mock_identity.validate_token.side_effect = RuntimeError("Something bad happened")
+
+    response = client.get("/health/ready")
+    assert response.status_code == 503
+    data = response.json()
+    assert data["detail"]["status"] == "unhealthy"
+    assert "Something bad happened" in data["detail"]["details"]["identity"]
