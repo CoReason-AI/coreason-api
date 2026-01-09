@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM python:3.12-slim AS builder
+FROM python:3.12-slim-bookworm AS builder
 
 # Install build dependencies
 RUN pip install --no-cache-dir build==1.3.0
@@ -18,17 +18,17 @@ RUN python -m build --wheel --outdir /wheels
 
 
 # Stage 2: Runtime
-FROM python:3.12-slim AS runtime
+FROM python:3.12-slim-bookworm AS runtime
 
 # Create a non-root user
-RUN useradd --create-home --shell /bin/bash appuser
-USER appuser
+RUN useradd --create-home --shell /bin/bash coreason
+USER coreason
 
 # Add user's local bin to PATH
-ENV PATH="/home/appuser/.local/bin:${PATH}"
+ENV PATH="/home/coreason/.local/bin:${PATH}"
 
 # Set the working directory
-WORKDIR /home/appuser/app
+WORKDIR /home/coreason/app
 
 # Copy the wheel from the builder stage
 COPY --from=builder /wheels /wheels
