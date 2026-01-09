@@ -11,17 +11,18 @@
 from functools import lru_cache
 from typing import Any, Dict, Tuple, Type
 
-# Import VaultManager.
+# Import VaultAdapter.
 # Note: In tests this will be mocked.
 # NOTE: PRD specifies `from coreason_vault.main import VaultManager`, but the installed
 # package `coreason-vault` does not contain a `main` module. `VaultManager` is exposed
 # at the top level.
-from coreason_vault import VaultManager
+# We use VaultAdapter to bridge the PRD interface to the installed package.
 from coreason_vault.config import CoreasonVaultConfig
 from pydantic import ValidationError
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
+from coreason_api.adapters import VaultAdapter
 from coreason_api.utils.logger import logger
 
 
@@ -40,12 +41,13 @@ class VaultSettingsSource(PydanticBaseSettingsSource):  # type: ignore[misc]
     def __call__(self) -> Dict[str, Any]:
         data: Dict[str, Any] = {}
         try:
-            # Attempt to initialize VaultManager.
+            # Attempt to initialize VaultAdapter.
             # First, load Vault config from Environment (raises ValidationError if missing VAULT_ADDR)
             vault_config = CoreasonVaultConfig()
 
-            # Initialize Manager (this might fail if network/creds are invalid)
-            vault = VaultManager(config=vault_config)
+            # Initialize Adapter (this might fail if network/creds are invalid)
+            # Use Adapter so we can use .get_secret() as per PRD interface
+            vault = VaultAdapter(config=vault_config)
 
             # Iterate over all defined settings fields
             for field_name in self.settings_cls.model_fields:
@@ -75,6 +77,7 @@ class Settings(BaseSettings):  # type: ignore[misc]
 
     # Infrastructure Settings (Defaults provided for dev/test)
     DATABASE_URL: str = "postgresql://coreason:coreason@localhost:5432/coreason_db"
+    REDIS_URL: str = "redis://localhost:6379/0"
 
     # Governance / Veritas
     # Default is a dummy public key for development/testing (Syntactically valid 2048-bit RSA)
