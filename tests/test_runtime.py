@@ -136,6 +136,24 @@ def test_run_agent_budget_failure(mock_dependencies: Dict[str, Any]) -> None:
     mock_dependencies["mcp"].execute_agent.assert_not_called()
 
 
+def test_run_agent_budget_error(mock_dependencies: Dict[str, Any]) -> None:
+    # Simulate a generic exception during budget check
+    mock_dependencies["budget"].check_quota.side_effect = Exception("Redis Down")
+
+    response = client.post(
+        "/v1/run/test-agent-123",
+        json={"input_data": {"query": "hello"}, "cost_estimate": 100.0},
+        headers={"Authorization": "Bearer valid-token"},
+    )
+
+    # Should catch exception and return 500
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Error checking budget"
+
+    # Ensure execution didn't happen
+    mock_dependencies["mcp"].execute_agent.assert_not_called()
+
+
 def test_run_agent_execution_failure(mock_dependencies: Dict[str, Any]) -> None:
     mock_dependencies["mcp"].execute_agent.side_effect = Exception("MCP Error")
 
