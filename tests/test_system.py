@@ -11,12 +11,11 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from coreason_identity.manager import IdentityManager
-from fastapi.testclient import TestClient
-
 from coreason_api.adapters import BudgetAdapter, VaultAdapter
 from coreason_api.dependencies import get_budget_guard, get_identity_manager, get_vault_manager
 from coreason_api.main import app
+from coreason_identity.manager import IdentityManager
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture  # type: ignore[misc]

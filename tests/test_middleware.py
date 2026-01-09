@@ -12,12 +12,11 @@ import asyncio
 from typing import Generator
 
 import pytest
+from coreason_api.middleware import TraceIDMiddleware
+from coreason_api.utils.logger import logger
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
-
-from coreason_api.middleware import TraceIDMiddleware
-from coreason_api.utils.logger import logger
 
 
 @pytest.fixture  # type: ignore[misc]
@@ -25,16 +24,16 @@ def app() -> FastAPI:
     app = FastAPI()
     app.add_middleware(TraceIDMiddleware)
 
-    @app.get("/")  # type: ignore[misc]
+    @app.get("/")
     async def root() -> dict[str, str]:
         logger.info("Inside handler")
         return {"message": "ok"}
 
-    @app.get("/error")  # type: ignore[misc]
+    @app.get("/error")
     async def error() -> None:
         raise HTTPException(status_code=400, detail="Bad Request")
 
-    @app.get("/sleep")  # type: ignore[misc]
+    @app.get("/sleep")
     async def sleep_handler(idx: int) -> dict[str, int]:
         logger.info(f"Sleeping request {idx}")
         await asyncio.sleep(0.1)
