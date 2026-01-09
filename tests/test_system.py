@@ -11,21 +11,22 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from coreason_api.adapters import BudgetAdapter, VaultAdapter
-from coreason_api.dependencies import get_budget_guard, get_identity_manager, get_vault_manager
-from coreason_api.main import app
 from coreason_identity.manager import IdentityManager
 from fastapi.testclient import TestClient
 
+from coreason_api.adapters import BudgetAdapter, VaultAdapter
+from coreason_api.dependencies import get_budget_guard, get_identity_manager, get_vault_manager
+from coreason_api.main import app
 
-@pytest.fixture
+
+@pytest.fixture  # type: ignore[misc]
 def mock_vault() -> MagicMock:
     mock = MagicMock(spec=VaultAdapter)
     mock.get_secret.return_value = "secret"
     return mock
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def mock_identity() -> AsyncMock:
     mock = AsyncMock(spec=IdentityManager)
     # validate_token is async
@@ -33,14 +34,14 @@ def mock_identity() -> AsyncMock:
     return mock
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def mock_budget() -> AsyncMock:
     mock = AsyncMock(spec=BudgetAdapter)
     mock.check_quota = AsyncMock(return_value=True)
     return mock
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def client(mock_vault: MagicMock, mock_identity: AsyncMock, mock_budget: AsyncMock) -> TestClient:
     app.dependency_overrides[get_vault_manager] = lambda: mock_vault
     app.dependency_overrides[get_identity_manager] = lambda: mock_identity

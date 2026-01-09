@@ -26,7 +26,7 @@ class HealthStatus(BaseModel):  # type: ignore[misc]
     details: Optional[Dict[str, str]] = None
 
 
-@router.get("/health/live", response_model=HealthStatus)
+@router.get("/health/live", response_model=HealthStatus)  # type: ignore[misc]
 async def liveness_check() -> HealthStatus:
     """
     Liveness probe: Checks if the application is running.
@@ -34,7 +34,7 @@ async def liveness_check() -> HealthStatus:
     return HealthStatus(status="ok")
 
 
-@router.get("/health/ready", response_model=HealthStatus)
+@router.get("/health/ready", response_model=HealthStatus)  # type: ignore[misc]
 async def readiness_check(
     vault: Annotated[VaultAdapter, Depends(get_vault_manager)],
     identity: Annotated[IdentityManager, Depends(get_identity_manager)],

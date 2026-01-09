@@ -11,6 +11,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from coreason_api.adapters import BudgetAdapter, VaultAdapter
 
 
@@ -29,7 +30,7 @@ def test_vault_adapter() -> None:
         mock_vm_instance.secrets.get_secret.assert_called_with("key", default="def")
 
 
-@pytest.mark.anyio
+@pytest.mark.anyio  # type: ignore[misc]
 async def test_budget_adapter() -> None:
     # Test BudgetAdapter delegates to internal guard
     with (

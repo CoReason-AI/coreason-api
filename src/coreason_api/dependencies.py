@@ -63,13 +63,6 @@ def get_budget_guard(settings: Annotated[Settings, Depends(get_settings)]) -> Bu
     """
     Returns a singleton instance of BudgetAdapter.
     """
-    # Using REDIS_URL for the ledger as decided in adapters.py
-    # Fallback to DATABASE_URL if REDIS_URL not set in settings?
-    # Settings has REDIS_URL defined in the previous edit (which is still there? No I restored file?
-    # Wait, I restored pyproject.toml and tests/test_middleware.py.
-    # config.py was NOT restored. So it should still have REDIS_URL if I committed that change?
-    # Actually I used replace_with_git_merge_diff on config.py.
-    # Let's verify config.py content.
     return BudgetAdapter(db_url=settings.REDIS_URL)
 
 
