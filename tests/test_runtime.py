@@ -152,3 +152,103 @@ def test_run_agent_execution_failure(mock_dependencies: Dict[str, Any]) -> None:
     mock_dependencies["auditor"].log_event.assert_any_call(
         "EXECUTION_FAILED", {"agent_id": "test-agent-123", "user_id": "test_user_id", "error": "MCP Error"}
     )
+
+
+# --- Edge Case Tests ---
+
+
+def test_run_agent_negative_cost(mock_dependencies: Dict[str, Any]) -> None:
+    response = client.post(
+        "/v1/run/test-agent-123",
+        json={"input_data": {"query": "hello"}, "cost_estimate": -5.0},
+        headers={"Authorization": "Bearer valid-token"},
+    )
+
+    # Expect 422 Validation Error
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["type"] == "greater_than_equal"
+
+    # Ensure execution didn't happen
+    mock_dependencies["mcp"].execute_agent.assert_not_called()
+
+
+def test_run_agent_audit_start_failure(mock_dependencies: Dict[str, Any]) -> None:
+    # Simulate Audit Start failure
+    mock_dependencies["auditor"].log_event.side_effect = [Exception("Audit Down"), None, None]
+
+    response = client.post(
+        "/v1/run/test-agent-123",
+        json={"input_data": {"query": "hello"}},
+        headers={"Authorization": "Bearer valid-token"},
+    )
+
+    assert response.status_code == 500
+    assert "Audit logging failed" in response.json()["detail"]
+
+    # Ensure execution didn't happen
+    mock_dependencies["mcp"].execute_agent.assert_not_called()
+
+
+def test_run_agent_audit_end_failure(mock_dependencies: Dict[str, Any]) -> None:
+    # Simulate Audit End failure (second call to log_event)
+    # First call is START (success), second is END (failure)
+    # If EXECUTION_FAILED is called, that would be 2nd call too, but we expect success here
+
+    def log_side_effect(event_type: str, data: Any) -> Any:
+        if event_type == "EXECUTION_END":
+            raise Exception("Audit Down on End")
+        return AsyncMock()
+
+    mock_dependencies["auditor"].log_event.side_effect = log_side_effect
+
+    response = client.post(
+        "/v1/run/test-agent-123",
+        json={"input_data": {"query": "hello"}},
+        headers={"Authorization": "Bearer valid-token"},
+    )
+
+    # Request should succeed despite audit end failure
+    assert response.status_code == 200
+    assert response.json()["result"]["status"] == "success"
+
+    # Verify both calls attempted
+    assert mock_dependencies["auditor"].log_event.call_count >= 2
+
+
+def test_run_agent_malformed_auth(mock_dependencies: Dict[str, Any]) -> None:
+    # This depends on how coreason-identity handles it.
+    # Usually it raises an error or returns None/False.
+    # We mock validate_token to raise exception for anything weird if the library does so.
+    # Assuming validate_token expects "Bearer <token>" and we pass just "token".
+
+    # If we pass something that causes validate_token to raise:
+    mock_dependencies["identity"].validate_token.side_effect = Exception("Malformed header")
+
+    response = client.post(
+        "/v1/run/test-agent-123",
+        json={"input_data": {"query": "hello"}},
+        headers={"Authorization": "Basic user:pass"},
+    )
+
+    assert response.status_code == 401
+    assert "Invalid authentication credentials" in response.json()["detail"]
+
+
+def test_run_agent_zero_cost(mock_dependencies: Dict[str, Any]) -> None:
+    response = client.post(
+        "/v1/run/test-agent-123",
+        json={"input_data": {"query": "hello"}, "cost_estimate": 0.0},
+        headers={"Authorization": "Bearer valid-token"},
+    )
+
+    assert response.status_code == 200
+
+    # Check budget call
+    mock_dependencies["budget"].check_quota.assert_called_once_with(user_id="test_user_id", cost_estimate=0.0)
+
+    # Settlement call
+    mock_dependencies["budget"].record_transaction.assert_called_once_with(
+        user_id="test_user_id",
+        amount=0.0,
+        context={"agent_id": "test-agent-123", "transaction_type": "agent_execution"},
+    )

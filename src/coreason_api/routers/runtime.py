@@ -17,7 +17,7 @@ from coreason_mcp.session_manager import SessionManager
 # from coreason_mcp.types import SessionContext  # Not available in installed package
 from coreason_veritas.auditor import IERLogger as Auditor
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from coreason_api.adapters import BudgetAdapter
 from coreason_api.dependencies import (
@@ -34,7 +34,7 @@ router = APIRouter(tags=["runtime"])
 class RunRequest(BaseModel):
     input_data: Dict[str, Any]
     session_context: Optional[Dict[str, Any]] = None
-    cost_estimate: float = 1.0  # Default cost unit if not specified
+    cost_estimate: float = Field(default=1.0, ge=0.0)  # Default cost unit if not specified
 
 
 class RunResponse(BaseModel):
