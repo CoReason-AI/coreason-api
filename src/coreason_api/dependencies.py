@@ -30,7 +30,7 @@ from coreason_veritas.auditor import IERLogger as Auditor
 from coreason_veritas.gatekeeper import SignatureValidator as Gatekeeper
 from fastapi import Depends
 
-from coreason_api.adapters import BudgetAdapter, VaultAdapter
+from coreason_api.adapters import AnchorAdapter, BudgetAdapter, VaultAdapter
 from coreason_api.config import Settings, get_settings
 
 
@@ -100,3 +100,11 @@ def get_manifest_validator() -> ManifestValidator:
     Returns a singleton instance of ManifestValidator (implemented by SchemaValidator).
     """
     return ManifestValidator()
+
+
+@lru_cache
+def get_trust_anchor() -> AnchorAdapter:
+    """
+    Returns a singleton instance of AnchorAdapter (TrustAnchor).
+    """
+    return AnchorAdapter()

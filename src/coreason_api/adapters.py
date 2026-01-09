@@ -8,13 +8,14 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_api
 
-from typing import Any
+from typing import Any, Dict
 
 from coreason_budget.config import CoreasonBudgetConfig
 from coreason_budget.guard import BudgetGuard
 from coreason_budget.ledger import RedisLedger
 from coreason_vault import VaultManager
 from coreason_vault.config import CoreasonVaultConfig
+from coreason_veritas.anchor import DeterminismInterceptor
 
 
 class VaultAdapter:
@@ -65,3 +66,19 @@ class BudgetAdapter:
         # If 'charge' doesn't exist or signature differs, we might need to adjust.
         # Based on inspection, 'charge' exists.
         await self._guard.charge(user_id=user_id, cost=amount)
+
+
+class AnchorAdapter:
+    """
+    Adapter for coreason-veritas.anchor.TrustAnchor.
+    PRD VID:
+      TrustAnchor.seal(artifact)
+    Installed:
+      DeterminismInterceptor.seal(artifact)
+    """
+
+    def __init__(self) -> None:
+        self._interceptor = DeterminismInterceptor()
+
+    def seal(self, artifact: Dict[str, Any]) -> str:
+        return self._interceptor.seal(artifact)
