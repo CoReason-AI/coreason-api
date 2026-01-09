@@ -79,9 +79,10 @@ def test_get_gatekeeper() -> None:
 
 
 def test_get_session_manager() -> None:
-    with patch("coreason_api.dependencies.SessionManager") as MockSM:
+    # Now returns MCPAdapter
+    with patch("coreason_api.dependencies.MCPAdapter") as MockAdapter:
         sm = get_session_manager()
-        assert sm is MockSM.return_value
+        assert sm is MockAdapter.return_value
 
 
 def test_get_manifest_validator() -> None:

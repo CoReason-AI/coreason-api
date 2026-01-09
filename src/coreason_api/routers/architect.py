@@ -12,12 +12,11 @@ from typing import Any, Dict, List
 
 from coreason_manifest.models import AgentDefinition
 from coreason_manifest.validator import SchemaValidator as ManifestValidator
-from coreason_mcp.session_manager import SessionManager
 from coreason_veritas.gatekeeper import SignatureValidator as Gatekeeper
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from coreason_api.adapters import AnchorAdapter
+from coreason_api.adapters import AnchorAdapter, MCPAdapter
 from coreason_api.dependencies import (
     get_gatekeeper,
     get_manifest_validator,
@@ -95,7 +94,7 @@ async def generate_vibe(
 @router.post("/v1/architect/simulate", response_model=SimulateResponse)
 async def simulate_agent(
     request: SimulateRequest,
-    mcp: SessionManager = Depends(get_session_manager),  # noqa: B008
+    mcp: MCPAdapter = Depends(get_session_manager),  # noqa: B008
 ) -> SimulateResponse:
     """
     Test Arena: Execute an in-memory draft of an agent via coreason-mcp.

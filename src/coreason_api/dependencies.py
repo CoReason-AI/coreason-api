@@ -18,7 +18,6 @@ from coreason_identity.manager import IdentityManager
 
 # Manifest: PRD says `ManifestValidator`, package has `SchemaValidator`.
 from coreason_manifest.validator import SchemaValidator as ManifestValidator
-from coreason_mcp.session_manager import SessionManager
 
 # External Dependencies with adaptation to installed packages
 from coreason_vault.config import CoreasonVaultConfig
@@ -30,7 +29,7 @@ from coreason_veritas.auditor import IERLogger as Auditor
 from coreason_veritas.gatekeeper import SignatureValidator as Gatekeeper
 from fastapi import Depends
 
-from coreason_api.adapters import AnchorAdapter, BudgetAdapter, VaultAdapter
+from coreason_api.adapters import AnchorAdapter, BudgetAdapter, MCPAdapter, VaultAdapter
 from coreason_api.config import Settings, get_settings
 
 
@@ -87,11 +86,11 @@ def get_gatekeeper(settings: Annotated[Settings, Depends(get_settings)]) -> Gate
 
 
 @lru_cache
-def get_session_manager() -> SessionManager:
+def get_session_manager() -> MCPAdapter:
     """
-    Returns a singleton instance of SessionManager.
+    Returns a singleton instance of MCPAdapter (wrapping SessionManager).
     """
-    return SessionManager()
+    return MCPAdapter()
 
 
 @lru_cache
