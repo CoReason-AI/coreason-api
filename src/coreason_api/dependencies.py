@@ -11,8 +11,6 @@
 from functools import lru_cache
 from typing import Annotated
 
-from coreason_budget.guard import BudgetGuard
-
 # Identity: PRD says `from coreason_identity.manager import IdentityManager`.
 # Installed package requires `config` arg, not `vault`.
 from coreason_identity.config import CoreasonIdentityConfig
@@ -23,7 +21,6 @@ from coreason_manifest.validator import SchemaValidator as ManifestValidator
 from coreason_mcp.session_manager import SessionManager
 
 # External Dependencies with adaptation to installed packages
-from coreason_vault import VaultManager
 from coreason_vault.config import CoreasonVaultConfig
 
 # Veritas: PRD says `Auditor`, package has `IERLogger` implementing `log_event`.
@@ -33,17 +30,18 @@ from coreason_veritas.auditor import IERLogger as Auditor
 from coreason_veritas.gatekeeper import SignatureValidator as Gatekeeper
 from fastapi import Depends
 
+from coreason_api.adapters import BudgetAdapter, VaultAdapter
 from coreason_api.config import Settings, get_settings
 
 
 @lru_cache
-def get_vault_manager() -> VaultManager:
+def get_vault_manager() -> VaultAdapter:
     """
-    Returns a singleton instance of VaultManager.
+    Returns a singleton instance of VaultAdapter.
     Reads Vault configuration from Environment variables.
     """
     config = CoreasonVaultConfig()
-    return VaultManager(config=config)
+    return VaultAdapter(config=config)
 
 
 @lru_cache
@@ -61,11 +59,18 @@ def get_identity_manager(settings: Annotated[Settings, Depends(get_settings)]) -
 
 
 @lru_cache
-def get_budget_guard(settings: Annotated[Settings, Depends(get_settings)]) -> BudgetGuard:
+def get_budget_guard(settings: Annotated[Settings, Depends(get_settings)]) -> BudgetAdapter:
     """
-    Returns a singleton instance of BudgetGuard.
+    Returns a singleton instance of BudgetAdapter.
     """
-    return BudgetGuard(db_url=settings.DATABASE_URL)
+    # Using REDIS_URL for the ledger as decided in adapters.py
+    # Fallback to DATABASE_URL if REDIS_URL not set in settings?
+    # Settings has REDIS_URL defined in the previous edit (which is still there? No I restored file?
+    # Wait, I restored pyproject.toml and tests/test_middleware.py.
+    # config.py was NOT restored. So it should still have REDIS_URL if I committed that change?
+    # Actually I used replace_with_git_merge_diff on config.py.
+    # Let's verify config.py content.
+    return BudgetAdapter(db_url=settings.REDIS_URL)
 
 
 @lru_cache

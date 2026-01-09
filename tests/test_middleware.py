@@ -12,29 +12,28 @@ import asyncio
 from typing import Generator
 
 import pytest
+from coreason_api.middleware import TraceIDMiddleware
+from coreason_api.utils.logger import logger
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
-from coreason_api.middleware import TraceIDMiddleware
-from coreason_api.utils.logger import logger
 
-
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def app() -> FastAPI:
     app = FastAPI()
     app.add_middleware(TraceIDMiddleware)
 
-    @app.get("/")  # type: ignore[misc]
+    @app.get("/")
     async def root() -> dict[str, str]:
         logger.info("Inside handler")
         return {"message": "ok"}
 
-    @app.get("/error")  # type: ignore[misc]
+    @app.get("/error")
     async def error() -> None:
         raise HTTPException(status_code=400, detail="Bad Request")
 
-    @app.get("/sleep")  # type: ignore[misc]
+    @app.get("/sleep")
     async def sleep_handler(idx: int) -> dict[str, int]:
         logger.info(f"Sleeping request {idx}")
         await asyncio.sleep(0.1)
@@ -44,7 +43,7 @@ def app() -> FastAPI:
     return app
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def client(app: FastAPI) -> Generator[TestClient, None, None]:
     with TestClient(app) as c:
         yield c
@@ -135,7 +134,7 @@ def test_trace_id_on_handled_exception(client: TestClient) -> None:
     assert len(response.headers["X-Trace-ID"]) > 0
 
 
-@pytest.mark.anyio  # type: ignore[misc]
+@pytest.mark.anyio
 async def test_trace_id_concurrency(app: FastAPI) -> None:
     """
     Test that Trace IDs are correctly isolated in concurrent async requests.
