@@ -70,8 +70,31 @@ class Settings(BaseSettings):  # type: ignore[misc]
     # Infrastructure Settings (Defaults provided for dev/test)
     DATABASE_URL: str = "postgresql://coreason:coreason@localhost:5432/coreason_db"
 
+    # Governance / Veritas
+    # Default is a dummy public key for development/testing (Syntactically valid 2048-bit RSA)
+    SRB_PUBLIC_KEY: str = (
+        "-----BEGIN PUBLIC KEY-----\n"
+        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAz/6Z7z8z8z8z8z8z8z8z\n"
+        "8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z\n"
+        "8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z\n"
+        "8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z\n"
+        "8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z\n"
+        "8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z8z\n"
+        "8wIDAQAB\n"
+        "-----END PUBLIC KEY-----"
+    )
+
+    # Identity / Auth
+    COREASON_AUTH_DOMAIN: str = "auth.coreason.dev"
+    COREASON_AUTH_AUDIENCE: str = "https://api.coreason.dev"
+    COREASON_AUTH_CLIENT_ID: str = "dev-client-id"
+
     # Model Config
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # frozen=True makes the Settings object hashable, allowing it to be used
+    # as an argument in lru_cache decorated functions.
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", frozen=True
+    )
 
     @classmethod
     def settings_customise_sources(
