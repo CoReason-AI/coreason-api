@@ -27,14 +27,17 @@ from coreason_api.dependencies import (
 
 def test_get_vault_manager() -> None:
     # Patch the class where it is imported in dependencies.py
-    with patch("coreason_api.dependencies.VaultManager") as MockVault:
+    with (
+        patch("coreason_api.dependencies.VaultManager") as MockVault,
+        patch("coreason_api.dependencies.CoreasonVaultConfig") as MockConfig,
+    ):
         get_vault_manager.cache_clear()
 
         instance1 = get_vault_manager()
         instance2 = get_vault_manager()
 
         assert instance1 is instance2
-        MockVault.assert_called_once()
+        MockVault.assert_called_once_with(config=MockConfig.return_value)
 
 
 def test_get_identity_manager_with_real_settings() -> None:
@@ -53,6 +56,27 @@ def test_get_identity_manager_with_real_settings() -> None:
 
         assert instance1 is instance2
         MockIdentity.assert_called_once()
+
+
+def test_identity_manager_reloads_on_settings_change() -> None:
+    """
+    Complex Case: Verify singleton lifecycle.
+    If Settings object changes (e.g. distinct instances with different content),
+    get_identity_manager should return a NEW instance (cache miss).
+    """
+    # Create two settings objects.
+    settings_a = Settings(COREASON_AUTH_CLIENT_ID="client-a")
+    settings_b = Settings(COREASON_AUTH_CLIENT_ID="client-b")
+
+    # Important: Ensure MockIdentity returns distinct instances so we can verify cache miss.
+    with patch("coreason_api.dependencies.IdentityManager", side_effect=lambda **kwargs: MagicMock()) as MockIdentity:
+        get_identity_manager.cache_clear()
+
+        manager_a = get_identity_manager(settings_a)
+        manager_b = get_identity_manager(settings_b)
+
+        assert manager_a is not manager_b
+        assert MockIdentity.call_count == 2
 
 
 def test_get_identity_manager_configuration() -> None:
@@ -136,6 +160,27 @@ def test_get_gatekeeper() -> None:
 
         assert instance1 is instance2
         MockGatekeeper.assert_called_once_with(public_key_store="mock-key-store")
+
+
+def test_gatekeeper_reloads_on_key_change() -> None:
+    """
+    Complex Case: Verify Gatekeeper reloads if SRB Key changes.
+    """
+    settings_a = Settings(SRB_PUBLIC_KEY="key-a")
+    settings_b = Settings(SRB_PUBLIC_KEY="key-b")
+
+    with patch("coreason_api.dependencies.Gatekeeper", side_effect=lambda **kwargs: MagicMock()) as MockGatekeeper:
+        get_gatekeeper.cache_clear()
+
+        gk_a = get_gatekeeper(settings_a)
+        gk_b = get_gatekeeper(settings_b)
+
+        assert gk_a is not gk_b
+        assert MockGatekeeper.call_count == 2
+
+        # Verify calls
+        MockGatekeeper.assert_any_call(public_key_store="key-a")
+        MockGatekeeper.assert_any_call(public_key_store="key-b")
 
 
 def test_get_gatekeeper_invalid_key() -> None:

@@ -17,6 +17,8 @@ from typing import Any, Dict, Tuple, Type
 # package `coreason-vault` does not contain a `main` module. `VaultManager` is exposed
 # at the top level.
 from coreason_vault import VaultManager
+from coreason_vault.config import CoreasonVaultConfig
+from pydantic import ValidationError
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
@@ -39,8 +41,11 @@ class VaultSettingsSource(PydanticBaseSettingsSource):  # type: ignore[misc]
         data: Dict[str, Any] = {}
         try:
             # Attempt to initialize VaultManager.
-            # This might fail if network/creds are missing.
-            vault = VaultManager()
+            # First, load Vault config from Environment (raises ValidationError if missing VAULT_ADDR)
+            vault_config = CoreasonVaultConfig()
+
+            # Initialize Manager (this might fail if network/creds are invalid)
+            vault = VaultManager(config=vault_config)
 
             # Iterate over all defined settings fields
             for field_name in self.settings_cls.model_fields:
@@ -52,9 +57,10 @@ class VaultSettingsSource(PydanticBaseSettingsSource):  # type: ignore[misc]
                 if secret_value is not None:
                     data[field_name] = secret_value
 
-        except Exception as e:
+        except (ValidationError, Exception) as e:
             # PRD Requirement: Fail gracefully if Vault is unreachable in Dev.
             # We log the error but do not raise, allowing other sources (Env) to fill values.
+            # ValidationError occurs if VAULT_ADDR is missing in env.
             logger.warning(f"Vault unreachable or error loading secrets: {e}. Falling back to Environment/Defaults.")
 
         return data

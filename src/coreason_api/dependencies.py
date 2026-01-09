@@ -24,6 +24,7 @@ from coreason_mcp.session_manager import SessionManager
 
 # External Dependencies with adaptation to installed packages
 from coreason_vault import VaultManager
+from coreason_vault.config import CoreasonVaultConfig
 
 # Veritas: PRD says `Auditor`, package has `IERLogger` implementing `log_event`.
 from coreason_veritas.auditor import IERLogger as Auditor
@@ -39,8 +40,10 @@ from coreason_api.config import Settings, get_settings
 def get_vault_manager() -> VaultManager:
     """
     Returns a singleton instance of VaultManager.
+    Reads Vault configuration from Environment variables.
     """
-    return VaultManager()
+    config = CoreasonVaultConfig()
+    return VaultManager(config=config)
 
 
 @lru_cache

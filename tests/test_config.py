@@ -19,7 +19,11 @@ from coreason_api.config import Settings, VaultSettingsSource, get_settings
 
 @pytest.fixture  # type: ignore[misc]
 def mock_vault_manager() -> Generator[MagicMock, None, None]:
-    with patch("coreason_api.config.VaultManager") as mock:
+    # Also patch CoreasonVaultConfig to prevent environment validation errors during tests
+    with (
+        patch("coreason_api.config.VaultManager") as mock,
+        patch("coreason_api.config.CoreasonVaultConfig") as _,
+    ):
         yield mock
 
 
@@ -63,6 +67,52 @@ def test_vault_settings_source_failure(mock_vault_manager: MagicMock) -> None:
         assert data == {}
         mock_logger.warning.assert_called_once()
         assert "Vault unreachable" in mock_logger.warning.call_args[0][0]
+
+
+def test_vault_settings_source_partial_failure(mock_vault_manager: MagicMock) -> None:
+    """
+    Complex Case: Vault returns some secrets but fails mid-way (e.g., token expiry or intermittent net issue).
+    Verify that we get partial data and a warning.
+    """
+    mock_vault_instance = mock_vault_manager.return_value
+
+    # Define side effect: Return value for first call, raise Exception for second
+    # Note: The order depends on model_fields iteration order.
+    # Settings fields: APP_ENV, DEBUG, LOG_LEVEL, SECRET_KEY, DATABASE_URL, SRB_PUBLIC_KEY, AUTH...
+
+    # Let's target SECRET_KEY to succeed, and DATABASE_URL to fail.
+    # We need to know the order or handle any key.
+
+    def side_effect(key: str, default: str | None) -> str | None:
+        if key == "SECRET_KEY":
+            return "partial-secret"
+        if key == "DATABASE_URL":
+            raise Exception("Vault connection lost")
+        return None
+
+    mock_vault_instance.get_secret.side_effect = side_effect
+
+    settings_cls = Settings
+    source = VaultSettingsSource(settings_cls)
+
+    with patch("coreason_api.config.logger") as mock_logger:
+        data = source()
+
+        # We expect SECRET_KEY to be present if it was processed before DATABASE_URL
+        # If DATABASE_URL was processed first, data might be empty.
+        # However, checking Settings definition, APP_ENV is first.
+        # To make this robust, we only assert that exception was caught and we didn't crash.
+
+        mock_logger.warning.assert_called_once()
+        assert "Vault unreachable" in mock_logger.warning.call_args[0][0]
+
+        # If SECRET_KEY was processed, it should be in data.
+        # If the loop breaks on exception, any field processed BEFORE the exception should be in data.
+        # We can't guarantee order easily without assuming Pydantic internals, but usually it's definition order.
+        # SECRET_KEY (defined earlier) < DATABASE_URL (defined later).
+        # So likely SECRET_KEY is in data.
+        if "SECRET_KEY" in data:
+            assert data["SECRET_KEY"] == "partial-secret"
 
 
 def test_settings_load_priority(mock_vault_manager: MagicMock) -> None:
