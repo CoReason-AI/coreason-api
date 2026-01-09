@@ -11,7 +11,7 @@
 from typing import Generator
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from coreason_api.middleware import TraceIDMiddleware
@@ -27,6 +27,10 @@ def app() -> FastAPI:
     async def root() -> dict[str, str]:
         logger.info("Inside handler")
         return {"message": "ok"}
+
+    @app.get("/error")  # type: ignore[misc]
+    async def error() -> None:
+        raise HTTPException(status_code=400, detail="Bad Request")
 
     return app
 
@@ -89,3 +93,34 @@ def test_trace_id_logging(client: TestClient) -> None:
 
     finally:
         logger.remove(handler_id)
+
+
+def test_trace_id_empty_header(client: TestClient) -> None:
+    """Test that a new Trace ID is generated if the header is present but empty."""
+    # Pass empty string as header value
+    response = client.get("/", headers={"X-Trace-ID": ""})
+    assert response.status_code == 200
+    trace_id = response.headers.get("X-Trace-ID")
+    assert trace_id is not None
+    assert len(trace_id) > 0
+    # Should be a generated UUID, definitely not empty
+    assert trace_id != ""
+
+
+def test_trace_id_non_uuid_header(client: TestClient) -> None:
+    """Test that weird/non-UUID trace IDs are propagated (opaque token behavior)."""
+    weird_id = "not-a-uuid-just-some-string"
+    response = client.get("/", headers={"X-Trace-ID": weird_id})
+    assert response.status_code == 200
+    assert response.headers["X-Trace-ID"] == weird_id
+
+
+def test_trace_id_on_handled_exception(client: TestClient) -> None:
+    """
+    Test that the Trace ID is present in the response headers even when
+    the application returns an error response (e.g. 400).
+    """
+    response = client.get("/error")
+    assert response.status_code == 400
+    assert "X-Trace-ID" in response.headers
+    assert len(response.headers["X-Trace-ID"]) > 0
