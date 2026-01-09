@@ -18,12 +18,12 @@ from coreason_api.middleware import TraceIDMiddleware
 from coreason_api.utils.logger import logger
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def app() -> FastAPI:
     app = FastAPI()
     app.add_middleware(TraceIDMiddleware)
 
-    @app.get("/")
+    @app.get("/")  # type: ignore[misc]
     async def root() -> dict[str, str]:
         logger.info("Inside handler")
         return {"message": "ok"}
@@ -31,7 +31,7 @@ def app() -> FastAPI:
     return app
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def client(app: FastAPI) -> Generator[TestClient, None, None]:
     with TestClient(app) as c:
         yield c
@@ -57,7 +57,7 @@ def test_trace_id_logging(client: TestClient) -> None:
     """Test that the Trace ID is bound to the logger context."""
     log_sink = []
 
-    def sink(message: str) -> None:  # type: ignore[no-any-unimported]
+    def sink(message: str) -> None:
         # In Loguru, the message object has a .record attribute
         record = message.record  # type: ignore[attr-defined]
         log_sink.append(record)

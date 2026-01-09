@@ -18,7 +18,7 @@ from starlette.types import ASGIApp
 from coreason_api.utils.logger import logger
 
 
-class TraceIDMiddleware(BaseHTTPMiddleware):
+class TraceIDMiddleware(BaseHTTPMiddleware):  # type: ignore[misc]
     """
     Middleware that assigns a UUID Trace ID to every request.
     It looks for 'X-Trace-ID' in the request headers; if missing, it generates one.
@@ -28,9 +28,7 @@ class TraceIDMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp) -> None:
         super().__init__(app)
 
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         trace_id = request.headers.get("X-Trace-ID") or str(uuid.uuid4())
 
         # Bind trace_id to the logger for the duration of this request
