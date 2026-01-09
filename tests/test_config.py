@@ -13,6 +13,7 @@ from typing import Any, Generator
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from coreason_api.config import Settings, get_settings
 
@@ -149,3 +150,37 @@ def test_settings_empty_string_in_vault() -> None:
             settings = Settings()
             # Vault returns "", which is not None. So it should be used.
             assert settings.SECRET_KEY == ""
+
+
+def test_settings_priority_check() -> None:
+    """
+    Test precedence: Vault > Env.
+    """
+    with patch("coreason_api.config.VaultManager") as MockVault:
+        mock_instance = MockVault.return_value
+
+        # Vault has value "from-vault"
+        mock_instance.get_secret.side_effect = lambda k, default=None: "from-vault" if k == "SECRET_KEY" else None
+
+        # Env has value "from-env"
+        with patch.dict(os.environ, {"SECRET_KEY": "from-env"}):
+            settings = Settings()
+            # Expectation: Vault > Env
+            assert settings.SECRET_KEY == "from-vault"
+
+
+def test_settings_validation_error_from_vault() -> None:
+    """Test that invalid data from Vault raises ValidationError."""
+    with patch("coreason_api.config.VaultManager") as MockVault:
+        mock_instance = MockVault.return_value
+
+        # Vault returns invalid boolean
+        def get_secret_side_effect(key: str, default: Any = None) -> Any:
+            if key == "DEBUG":
+                return "not-a-boolean"
+            return None
+
+        mock_instance.get_secret.side_effect = get_secret_side_effect
+
+        with pytest.raises(ValidationError):
+            Settings()
