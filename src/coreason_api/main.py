@@ -14,7 +14,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 
 from coreason_api.middleware import TraceIDMiddleware
-from coreason_api.routers import system
+from coreason_api.routers import runtime, system
 from coreason_api.utils.logger import logger
 
 
@@ -44,6 +44,7 @@ def create_app() -> FastAPI:
 
     # Include Routers
     app.include_router(system.router)
+    app.include_router(runtime.router)
 
     return app
 

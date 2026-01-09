@@ -11,7 +11,6 @@
 from unittest.mock import MagicMock
 
 import pytest
-
 from coreason_api.main import hello_world, lifespan
 
 
