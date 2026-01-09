@@ -8,10 +8,8 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_api
 
-from typing import Any, Type, Dict, Tuple
 from functools import lru_cache
-from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource
-from pydantic.fields import FieldInfo
+from typing import Any, Dict, Tuple, Type
 
 # Import VaultManager.
 # Note: In tests this will be mocked.
@@ -19,16 +17,20 @@ from pydantic.fields import FieldInfo
 # package `coreason-vault` does not contain a `main` module. `VaultManager` is exposed
 # at the top level.
 from coreason_vault import VaultManager
+from pydantic.fields import FieldInfo
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
+
 from coreason_api.utils.logger import logger
 
 
-class VaultSettingsSource(PydanticBaseSettingsSource):
+class VaultSettingsSource(PydanticBaseSettingsSource):  # type: ignore[misc]
     """
     A custom Pydantic Settings Source that loads secrets from Coreason Vault.
     It attempts to fetch a secret for every field in the Settings model.
     If Vault is unreachable, it logs a warning and returns an empty dict,
     allowing fallback to environment variables.
     """
+
     def get_field_value(self, field: FieldInfo, field_name: str) -> Tuple[Any, str, bool]:
         # Not used when overriding __call__
         return None, field_name, False  # pragma: no cover
@@ -58,7 +60,7 @@ class VaultSettingsSource(PydanticBaseSettingsSource):
         return data
 
 
-class Settings(BaseSettings):
+class Settings(BaseSettings):  # type: ignore[misc]
     # Core Application Settings
     APP_ENV: str = "development"
     DEBUG: bool = False
@@ -69,11 +71,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://coreason:coreason@localhost:5432/coreason_db"
 
     # Model Config
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @classmethod
     def settings_customise_sources(
