@@ -11,11 +11,6 @@
 from functools import lru_cache
 from typing import Annotated
 
-from fastapi import Depends
-
-# External Dependencies with adaptation to installed packages
-from coreason_vault import VaultManager
-
 from coreason_budget.guard import BudgetGuard
 
 # Identity: PRD says `from coreason_identity.manager import IdentityManager`.
@@ -25,13 +20,17 @@ from coreason_identity.manager import IdentityManager
 
 # Manifest: PRD says `ManifestValidator`, package has `SchemaValidator`.
 from coreason_manifest.validator import SchemaValidator as ManifestValidator
-
 from coreason_mcp.session_manager import SessionManager
+
+# External Dependencies with adaptation to installed packages
+from coreason_vault import VaultManager
 
 # Veritas: PRD says `Auditor`, package has `IERLogger` implementing `log_event`.
 from coreason_veritas.auditor import IERLogger as Auditor
+
 # Veritas: PRD says `Gatekeeper`, package has `SignatureValidator`.
 from coreason_veritas.gatekeeper import SignatureValidator as Gatekeeper
+from fastapi import Depends
 
 from coreason_api.config import Settings, get_settings
 
@@ -45,9 +44,7 @@ def get_vault_manager() -> VaultManager:
 
 
 @lru_cache
-def get_identity_manager(
-    settings: Annotated[Settings, Depends(get_settings)]
-) -> IdentityManager:
+def get_identity_manager(settings: Annotated[Settings, Depends(get_settings)]) -> IdentityManager:
     """
     Returns a singleton instance of IdentityManager.
     Uses Settings to construct CoreasonIdentityConfig.
@@ -61,9 +58,7 @@ def get_identity_manager(
 
 
 @lru_cache
-def get_budget_guard(
-    settings: Annotated[Settings, Depends(get_settings)]
-) -> BudgetGuard:
+def get_budget_guard(settings: Annotated[Settings, Depends(get_settings)]) -> BudgetGuard:
     """
     Returns a singleton instance of BudgetGuard.
     """
@@ -79,9 +74,7 @@ def get_auditor() -> Auditor:
 
 
 @lru_cache
-def get_gatekeeper(
-    settings: Annotated[Settings, Depends(get_settings)]
-) -> Gatekeeper:
+def get_gatekeeper(settings: Annotated[Settings, Depends(get_settings)]) -> Gatekeeper:
     """
     Returns a singleton instance of Gatekeeper (implemented by SignatureValidator).
     Requires SRB Public Key from settings.

@@ -13,9 +13,8 @@ from typing import Any, Generator
 from unittest.mock import patch
 
 import pytest
-from pydantic import ValidationError
-
 from coreason_api.config import Settings, get_settings
+from pydantic import ValidationError
 
 
 # Clear cache before tests

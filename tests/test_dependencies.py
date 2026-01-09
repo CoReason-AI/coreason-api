@@ -58,9 +58,10 @@ def test_get_identity_manager_configuration() -> None:
     mock_settings.COREASON_AUTH_AUDIENCE = "test.aud"
     mock_settings.COREASON_AUTH_CLIENT_ID = "test-client"
 
-    with patch("coreason_api.dependencies.IdentityManager") as MockIdentity, \
-         patch("coreason_api.dependencies.CoreasonIdentityConfig") as MockConfig:
-
+    with (
+        patch("coreason_api.dependencies.IdentityManager") as MockIdentity,
+        patch("coreason_api.dependencies.CoreasonIdentityConfig") as MockConfig,
+    ):
         get_identity_manager.cache_clear()
 
         instance1 = get_identity_manager(mock_settings)
@@ -69,11 +70,7 @@ def test_get_identity_manager_configuration() -> None:
         assert instance1 is instance2
 
         # Verify Config was created with settings
-        MockConfig.assert_called_with(
-            domain="test.auth",
-            audience="test.aud",
-            client_id="test-client"
-        )
+        MockConfig.assert_called_with(domain="test.auth", audience="test.aud", client_id="test-client")
         # Verify Manager was created with config
         MockIdentity.assert_called_once_with(config=MockConfig.return_value)
 

@@ -92,9 +92,7 @@ class Settings(BaseSettings):  # type: ignore[misc]
     # Model Config
     # frozen=True makes the Settings object hashable, allowing it to be used
     # as an argument in lru_cache decorated functions.
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore", frozen=True
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", frozen=True)
 
     @classmethod
     def settings_customise_sources(
