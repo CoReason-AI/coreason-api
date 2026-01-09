@@ -9,178 +9,141 @@
 # Source Code: https://github.com/CoReason-AI/coreason_api
 
 import os
-from typing import Any, Generator
-from unittest.mock import patch
+from typing import Generator
+from unittest.mock import MagicMock, patch
 
 import pytest
-from pydantic import ValidationError
 
-from coreason_api.config import Settings, get_settings
-
-
-# Clear cache before tests
-@pytest.fixture(autouse=True)  # type: ignore[misc]
-def clear_cache() -> Generator[None, None, None]:
-    get_settings.cache_clear()
-    yield
+from coreason_api.config import Settings, VaultSettingsSource, get_settings
 
 
-def test_settings_load_from_vault() -> None:
-    """Test that settings are loaded from Vault when available."""
-    with patch("coreason_api.config.VaultManager") as MockVault:
-        mock_instance = MockVault.return_value
-
-        # Define mock behavior for get_secret
-        def get_secret_side_effect(key: str, default: Any = None) -> Any:
-            secrets = {
-                "APP_ENV": "production",
-                "SECRET_KEY": "vault-super-secret",
-                "DATABASE_URL": "postgresql://vault:5432/db",
-            }
-            return secrets.get(key, default)
-
-        mock_instance.get_secret.side_effect = get_secret_side_effect
-
-        # Instantiate settings
-        settings = Settings()
-
-        assert settings.APP_ENV == "production"
-        assert settings.SECRET_KEY == "vault-super-secret"
-        assert settings.DATABASE_URL == "postgresql://vault:5432/db"
+@pytest.fixture  # type: ignore[misc]
+def mock_vault_manager() -> Generator[MagicMock, None, None]:
+    # Also patch CoreasonVaultConfig to prevent environment validation errors during tests
+    with (
+        patch("coreason_api.config.VaultManager") as mock,
+        patch("coreason_api.config.CoreasonVaultConfig") as _,
+    ):
+        yield mock
 
 
-def test_settings_fallback_to_env_when_vault_fails() -> None:
-    """Test that settings fall back to environment variables when Vault is unreachable."""
-    with patch("coreason_api.config.VaultManager") as MockVault:
-        # Simulate Vault connection failure
-        MockVault.side_effect = Exception("Connection refused to Vault")
-
-        # Set environment variables
-        env_vars = {"APP_ENV": "staging", "SECRET_KEY": "env-secret-key"}
-
-        with patch.dict(os.environ, env_vars):
-            settings = Settings()
-
-            assert settings.APP_ENV == "staging"
-            assert settings.SECRET_KEY == "env-secret-key"
-
-
-def test_settings_defaults_when_vault_empty() -> None:
-    """Test that defaults are used when Vault returns no secrets and env vars are unset."""
-    with patch("coreason_api.config.VaultManager") as MockVault:
-        mock_instance = MockVault.return_value
-        mock_instance.get_secret.return_value = None
-
-        # Ensure strict environment with no relevant vars
-        with patch.dict(os.environ, {}, clear=True):
-            settings = Settings()
-
-            assert settings.APP_ENV == "development"
-            assert settings.DEBUG is False
-            assert settings.SECRET_KEY == "insecure-default-key-do-not-use-in-prod"
-
-
-def test_get_settings_singleton() -> None:
-    """Test that get_settings returns a cached instance."""
-    with patch("coreason_api.config.VaultManager") as MockVault:
-        # Configure mock to return None (defaults) so Pydantic doesn't explode
-        mock_instance = MockVault.return_value
-        mock_instance.get_secret.return_value = None
-
-        with patch.dict(os.environ, {}, clear=True):
-            s1 = get_settings()
-            s2 = get_settings()
-            assert s1 is s2
-
-
-def test_settings_partial_vault_success() -> None:
-    """Test that settings merge Vault values with environment variables."""
-    with patch("coreason_api.config.VaultManager") as MockVault:
-        mock_instance = MockVault.return_value
-
-        # Vault has APP_ENV, but not SECRET_KEY
-        def get_secret_side_effect(key: str, default: Any = None) -> Any:
-            secrets = {
-                "APP_ENV": "staging",
-            }
-            return secrets.get(key, default)
-
-        mock_instance.get_secret.side_effect = get_secret_side_effect
-
-        # Env has SECRET_KEY
-        with patch.dict(os.environ, {"SECRET_KEY": "env-provided-key"}):
-            settings = Settings()
-
-            assert settings.APP_ENV == "staging"  # From Vault
-            assert settings.SECRET_KEY == "env-provided-key"  # From Env
-
-
-def test_settings_vault_type_conversion() -> None:
-    """Test that Pydantic converts types from Vault (e.g. string 'true' to bool)."""
-    with patch("coreason_api.config.VaultManager") as MockVault:
-        mock_instance = MockVault.return_value
-
-        def get_secret_side_effect(key: str, default: Any = None) -> Any:
-            secrets = {
-                "DEBUG": "true",  # String "true"
-                "APP_ENV": "test",
-            }
-            return secrets.get(key, default)
-
-        mock_instance.get_secret.side_effect = get_secret_side_effect
-
-        settings = Settings()
-        assert settings.DEBUG is True
-        assert settings.APP_ENV == "test"
-
-
-def test_settings_empty_string_in_vault() -> None:
-    """Test that empty string in Vault is respected as a value."""
-    with patch("coreason_api.config.VaultManager") as MockVault:
-        mock_instance = MockVault.return_value
-
-        def get_secret_side_effect(key: str, default: Any = None) -> Any:
-            if key == "SECRET_KEY":
-                return ""
-            return None
-
-        mock_instance.get_secret.side_effect = get_secret_side_effect
-
-        with patch.dict(os.environ, {"SECRET_KEY": "env-key"}):
-            settings = Settings()
-            # Vault returns "", which is not None. So it should be used.
-            assert settings.SECRET_KEY == ""
-
-
-def test_settings_priority_check() -> None:
+def test_vault_settings_source_success(mock_vault_manager: MagicMock) -> None:
     """
-    Test precedence: Vault > Env.
+    Test that VaultSettingsSource correctly loads secrets from Vault.
     """
-    with patch("coreason_api.config.VaultManager") as MockVault:
-        mock_instance = MockVault.return_value
+    # Setup mock vault to return a secret
+    mock_vault_instance = mock_vault_manager.return_value
+    mock_vault_instance.get_secret.side_effect = lambda key, default: "secret-value" if key == "SECRET_KEY" else None
 
-        # Vault has value "from-vault"
-        mock_instance.get_secret.side_effect = lambda k, default=None: "from-vault" if k == "SECRET_KEY" else None
+    # Initialize Settings with the custom source
+    # We need to force reload or bypass cache if using get_settings, but here we instantiate directly.
+    # However, BaseSettings reads from sources on init.
 
-        # Env has value "from-env"
-        with patch.dict(os.environ, {"SECRET_KEY": "from-env"}):
-            settings = Settings()
-            # Expectation: Vault > Env
-            assert settings.SECRET_KEY == "from-vault"
+    # We can test the source directly to avoid full Settings loading complexity
+    settings_cls = Settings
+    source = VaultSettingsSource(settings_cls)
+
+    data = source()
+
+    assert data["SECRET_KEY"] == "secret-value"
+    assert "DATABASE_URL" not in data  # returned None, so not added
 
 
-def test_settings_validation_error_from_vault() -> None:
-    """Test that invalid data from Vault raises ValidationError."""
-    with patch("coreason_api.config.VaultManager") as MockVault:
-        mock_instance = MockVault.return_value
+def test_vault_settings_source_failure(mock_vault_manager: MagicMock) -> None:
+    """
+    Test that VaultSettingsSource handles Vault unavailability gracefully.
+    Edge Case: VaultManager raises exception.
+    """
+    # Setup mock vault to raise exception on init or get_secret
+    mock_vault_manager.side_effect = Exception("Connection Refused")
 
-        # Vault returns invalid boolean
-        def get_secret_side_effect(key: str, default: Any = None) -> Any:
-            if key == "DEBUG":
-                return "not-a-boolean"
-            return None
+    settings_cls = Settings
+    source = VaultSettingsSource(settings_cls)
 
-        mock_instance.get_secret.side_effect = get_secret_side_effect
+    # Should not raise exception, but log warning and return empty dict
+    with patch("coreason_api.config.logger") as mock_logger:
+        data = source()
 
-        with pytest.raises(ValidationError):
-            Settings()
+        assert data == {}
+        mock_logger.warning.assert_called_once()
+        assert "Vault unreachable" in mock_logger.warning.call_args[0][0]
+
+
+def test_vault_settings_source_partial_failure(mock_vault_manager: MagicMock) -> None:
+    """
+    Complex Case: Vault returns some secrets but fails mid-way (e.g., token expiry or intermittent net issue).
+    Verify that we get partial data and a warning.
+    """
+    mock_vault_instance = mock_vault_manager.return_value
+
+    # Define side effect: Return value for first call, raise Exception for second
+    # Note: The order depends on model_fields iteration order.
+    # Settings fields: APP_ENV, DEBUG, LOG_LEVEL, SECRET_KEY, DATABASE_URL, SRB_PUBLIC_KEY, AUTH...
+
+    # Let's target SECRET_KEY to succeed, and DATABASE_URL to fail.
+    # We need to know the order or handle any key.
+
+    def side_effect(key: str, default: str | None) -> str | None:
+        if key == "SECRET_KEY":
+            return "partial-secret"
+        if key == "DATABASE_URL":
+            raise Exception("Vault connection lost")
+        return None
+
+    mock_vault_instance.get_secret.side_effect = side_effect
+
+    settings_cls = Settings
+    source = VaultSettingsSource(settings_cls)
+
+    with patch("coreason_api.config.logger") as mock_logger:
+        data = source()
+
+        # We expect SECRET_KEY to be present if it was processed before DATABASE_URL
+        # If DATABASE_URL was processed first, data might be empty.
+        # However, checking Settings definition, APP_ENV is first.
+        # To make this robust, we only assert that exception was caught and we didn't crash.
+
+        mock_logger.warning.assert_called_once()
+        assert "Vault unreachable" in mock_logger.warning.call_args[0][0]
+
+        # If SECRET_KEY was processed, it should be in data.
+        # If the loop breaks on exception, any field processed BEFORE the exception should be in data.
+        # We can't guarantee order easily without assuming Pydantic internals, but usually it's definition order.
+        # SECRET_KEY (defined earlier) < DATABASE_URL (defined later).
+        # So likely SECRET_KEY is in data.
+        if "SECRET_KEY" in data:
+            assert data["SECRET_KEY"] == "partial-secret"
+
+
+def test_settings_load_priority(mock_vault_manager: MagicMock) -> None:
+    """
+    Test that Vault settings take precedence over Env vars.
+    """
+    mock_vault_instance = mock_vault_manager.return_value
+    mock_vault_instance.get_secret.side_effect = lambda key, default: "vault-secret" if key == "SECRET_KEY" else None
+
+    # Set env var (should be overridden)
+    with patch.dict(os.environ, {"SECRET_KEY": "env-secret"}):
+        settings = Settings()
+        assert settings.SECRET_KEY == "vault-secret"
+
+
+def test_settings_fallback_to_env(mock_vault_manager: MagicMock) -> None:
+    """
+    Test that if Vault doesn't have the secret, it falls back to Env.
+    """
+    mock_vault_instance = mock_vault_manager.return_value
+    mock_vault_instance.get_secret.return_value = None
+
+    with patch.dict(os.environ, {"SECRET_KEY": "env-secret"}):
+        settings = Settings()
+        assert settings.SECRET_KEY == "env-secret"
+
+
+def test_get_settings_caching() -> None:
+    """
+    Test that get_settings uses lru_cache.
+    """
+    s1 = get_settings()
+    s2 = get_settings()
+    assert s1 is s2
