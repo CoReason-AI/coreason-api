@@ -10,6 +10,9 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+from pydantic import ValidationError
+
 from coreason_api.config import Settings
 from coreason_api.dependencies import (
     get_auditor,
@@ -75,6 +78,27 @@ def test_get_identity_manager_configuration() -> None:
         MockIdentity.assert_called_once_with(config=MockConfig.return_value)
 
 
+def test_get_identity_manager_invalid_config() -> None:
+    """
+    Edge Case: Settings provide invalid values for Identity Config.
+    """
+    mock_settings = MagicMock()
+    # Missing required fields or invalid types might trigger ValidationError
+    # Here we assume CoreasonIdentityConfig raises ValidationError if validation fails.
+    # We force validation error by simulating it.
+
+    with (
+        patch(
+            "coreason_api.dependencies.CoreasonIdentityConfig",
+            side_effect=ValidationError.from_exception_data("Config", []),
+        ),
+    ):
+        get_identity_manager.cache_clear()
+
+        with pytest.raises(ValidationError):
+            get_identity_manager(mock_settings)
+
+
 def test_get_budget_guard() -> None:
     mock_settings = MagicMock()
     mock_settings.DATABASE_URL = "sqlite:///:memory:"
@@ -112,6 +136,21 @@ def test_get_gatekeeper() -> None:
 
         assert instance1 is instance2
         MockGatekeeper.assert_called_once_with(public_key_store="mock-key-store")
+
+
+def test_get_gatekeeper_invalid_key() -> None:
+    """
+    Edge Case: Invalid Public Key causes Gatekeeper initialization failure.
+    """
+    mock_settings = MagicMock()
+    mock_settings.SRB_PUBLIC_KEY = "invalid-key"
+
+    # Simulate Gatekeeper (SignatureValidator) raising ValueError on bad key
+    with patch("coreason_api.dependencies.Gatekeeper", side_effect=ValueError("Invalid key")):
+        get_gatekeeper.cache_clear()
+
+        with pytest.raises(ValueError, match="Invalid key"):
+            get_gatekeeper(mock_settings)
 
 
 def test_get_session_manager() -> None:
