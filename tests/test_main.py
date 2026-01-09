@@ -8,8 +8,19 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_api
 
-from coreason_api.main import hello_world
+from unittest.mock import MagicMock
+
+import pytest
+
+from coreason_api.main import hello_world, lifespan
 
 
 def test_hello_world() -> None:
     assert hello_world() == "Hello World!"
+
+
+@pytest.mark.anyio  # type: ignore[misc]
+async def test_lifespan() -> None:
+    app = MagicMock()
+    async with lifespan(app):
+        pass

@@ -8,7 +8,47 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_api
 
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
+from fastapi import FastAPI
+
+from coreason_api.middleware import TraceIDMiddleware
+from coreason_api.routers import system
 from coreason_api.utils.logger import logger
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """
+    Lifespan events for the application.
+    """
+    logger.info("Starting Coreason API...")
+    yield
+    logger.info("Shutting down Coreason API...")
+
+
+def create_app() -> FastAPI:
+    """
+    Factory function to create the FastAPI application.
+    """
+    app = FastAPI(
+        title="CoReason API",
+        description="Orchestration Layer for CoReason Platform",
+        version="0.1.0",
+        lifespan=lifespan,
+    )
+
+    # Add Middleware
+    app.add_middleware(TraceIDMiddleware)
+
+    # Include Routers
+    app.include_router(system.router)
+
+    return app
+
+
+app = create_app()
 
 
 def hello_world() -> str:

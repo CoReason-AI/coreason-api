@@ -51,7 +51,7 @@ def client(app: FastAPI) -> Generator[TestClient, None, None]:
 
 
 def test_trace_id_generation(client: TestClient) -> None:
-    """Test that a Trace ID is generated if missing."""
+    """Test that a Trace ID is generated if missing (forced update)."""
     response = client.get("/")
     assert response.status_code == 200
     assert "X-Trace-ID" in response.headers
