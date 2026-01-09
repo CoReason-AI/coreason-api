@@ -21,12 +21,12 @@ from coreason_api.utils.logger import logger
 router = APIRouter(tags=["system"])
 
 
-class HealthStatus(BaseModel):  # type: ignore[misc]
+class HealthStatus(BaseModel):
     status: str
     details: Optional[Dict[str, str]] = None
 
 
-@router.get("/health/live", response_model=HealthStatus)  # type: ignore[misc]
+@router.get("/health/live", response_model=HealthStatus)
 async def liveness_check() -> HealthStatus:
     """
     Liveness probe: Checks if the application is running.
@@ -34,7 +34,7 @@ async def liveness_check() -> HealthStatus:
     return HealthStatus(status="ok")
 
 
-@router.get("/health/ready", response_model=HealthStatus)  # type: ignore[misc]
+@router.get("/health/ready", response_model=HealthStatus)
 async def readiness_check(
     vault: Annotated[VaultAdapter, Depends(get_vault_manager)],
     identity: Annotated[IdentityManager, Depends(get_identity_manager)],

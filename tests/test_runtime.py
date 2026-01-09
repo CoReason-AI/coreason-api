@@ -1,8 +1,7 @@
+from typing import Any, Dict, Generator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi.testclient import TestClient
-
 from coreason_api.dependencies import (
     get_auditor,
     get_budget_guard,
@@ -10,12 +9,13 @@ from coreason_api.dependencies import (
     get_session_manager,
 )
 from coreason_api.main import app
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
 
-@pytest.fixture
-def mock_dependencies():
+@pytest.fixture  # type: ignore[misc]
+def mock_dependencies() -> Generator[Dict[str, Any], None, None]:
     # Identity Mock
     identity_instance = AsyncMock()
     user_context = MagicMock()
@@ -50,7 +50,7 @@ def mock_dependencies():
     app.dependency_overrides = {}
 
 
-def test_run_agent_success(mock_dependencies):
+def test_run_agent_success(mock_dependencies: Dict[str, Any]) -> None:
     response = client.post(
         "/v1/run/test-agent-123",
         json={"input_data": {"query": "hello"}, "cost_estimate": 5.0},
@@ -97,7 +97,7 @@ def test_run_agent_success(mock_dependencies):
     )
 
 
-def test_run_agent_auth_failure(mock_dependencies):
+def test_run_agent_auth_failure(mock_dependencies: Dict[str, Any]) -> None:
     mock_dependencies["identity"].validate_token.side_effect = Exception("Invalid token")
 
     response = client.post(
@@ -113,14 +113,14 @@ def test_run_agent_auth_failure(mock_dependencies):
     mock_dependencies["mcp"].execute_agent.assert_not_called()
 
 
-def test_run_agent_missing_auth(mock_dependencies):
+def test_run_agent_missing_auth(mock_dependencies: Dict[str, Any]) -> None:
     response = client.post("/v1/run/test-agent-123", json={"input_data": {"query": "hello"}})
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Missing Authorization header"
 
 
-def test_run_agent_budget_failure(mock_dependencies):
+def test_run_agent_budget_failure(mock_dependencies: Dict[str, Any]) -> None:
     mock_dependencies["budget"].check_quota.return_value = False
 
     response = client.post(
@@ -136,7 +136,7 @@ def test_run_agent_budget_failure(mock_dependencies):
     mock_dependencies["mcp"].execute_agent.assert_not_called()
 
 
-def test_run_agent_execution_failure(mock_dependencies):
+def test_run_agent_execution_failure(mock_dependencies: Dict[str, Any]) -> None:
     mock_dependencies["mcp"].execute_agent.side_effect = Exception("MCP Error")
 
     response = client.post(

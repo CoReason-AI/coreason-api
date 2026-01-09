@@ -26,7 +26,7 @@ from coreason_api.adapters import VaultAdapter
 from coreason_api.utils.logger import logger
 
 
-class VaultSettingsSource(PydanticBaseSettingsSource):  # type: ignore[misc]
+class VaultSettingsSource(PydanticBaseSettingsSource):
     """
     A custom Pydantic Settings Source that loads secrets from Coreason Vault.
     It attempts to fetch a secret for every field in the Settings model.
@@ -68,7 +68,7 @@ class VaultSettingsSource(PydanticBaseSettingsSource):  # type: ignore[misc]
         return data
 
 
-class Settings(BaseSettings):  # type: ignore[misc]
+class Settings(BaseSettings):
     # Core Application Settings
     APP_ENV: str = "development"
     DEBUG: bool = False

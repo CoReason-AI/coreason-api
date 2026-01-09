@@ -11,7 +11,6 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from coreason_api.adapters import BudgetAdapter, VaultAdapter
 
 

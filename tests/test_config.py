@@ -13,7 +13,6 @@ from typing import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from coreason_api.config import Settings, get_settings
 
 
