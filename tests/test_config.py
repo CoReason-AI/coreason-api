@@ -90,3 +90,62 @@ def test_get_settings_singleton() -> None:
             s1 = get_settings()
             s2 = get_settings()
             assert s1 is s2
+
+
+def test_settings_partial_vault_success() -> None:
+    """Test that settings merge Vault values with environment variables."""
+    with patch("coreason_api.config.VaultManager") as MockVault:
+        mock_instance = MockVault.return_value
+
+        # Vault has APP_ENV, but not SECRET_KEY
+        def get_secret_side_effect(key: str, default: Any = None) -> Any:
+            secrets = {
+                "APP_ENV": "staging",
+            }
+            return secrets.get(key, default)
+
+        mock_instance.get_secret.side_effect = get_secret_side_effect
+
+        # Env has SECRET_KEY
+        with patch.dict(os.environ, {"SECRET_KEY": "env-provided-key"}):
+            settings = Settings()
+
+            assert settings.APP_ENV == "staging"  # From Vault
+            assert settings.SECRET_KEY == "env-provided-key"  # From Env
+
+
+def test_settings_vault_type_conversion() -> None:
+    """Test that Pydantic converts types from Vault (e.g. string 'true' to bool)."""
+    with patch("coreason_api.config.VaultManager") as MockVault:
+        mock_instance = MockVault.return_value
+
+        def get_secret_side_effect(key: str, default: Any = None) -> Any:
+            secrets = {
+                "DEBUG": "true",  # String "true"
+                "APP_ENV": "test",
+            }
+            return secrets.get(key, default)
+
+        mock_instance.get_secret.side_effect = get_secret_side_effect
+
+        settings = Settings()
+        assert settings.DEBUG is True
+        assert settings.APP_ENV == "test"
+
+
+def test_settings_empty_string_in_vault() -> None:
+    """Test that empty string in Vault is respected as a value."""
+    with patch("coreason_api.config.VaultManager") as MockVault:
+        mock_instance = MockVault.return_value
+
+        def get_secret_side_effect(key: str, default: Any = None) -> Any:
+            if key == "SECRET_KEY":
+                return ""
+            return None
+
+        mock_instance.get_secret.side_effect = get_secret_side_effect
+
+        with patch.dict(os.environ, {"SECRET_KEY": "env-key"}):
+            settings = Settings()
+            # Vault returns "", which is not None. So it should be used.
+            assert settings.SECRET_KEY == ""
