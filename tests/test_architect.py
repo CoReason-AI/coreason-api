@@ -139,3 +139,33 @@ def test_publish_agent_schema_failure(client: TestClient, mock_validator: MagicM
     assert response.status_code == 400
     assert "Invalid agent definition" in response.json()["detail"]
     app.dependency_overrides = {}
+
+
+def test_publish_agent_parse_failure(client: TestClient, overrides: None) -> None:
+    # Mock ManifestLoader to raise Exception
+    with pytest.MonkeyPatch.context() as m:
+        mock_loader = MagicMock()
+        mock_loader.load_from_dict.side_effect = Exception("Parsing Error")
+        m.setattr("coreason_manifest.loader.ManifestLoader", mock_loader)
+
+        agent_def = {"metadata": {"name": "my-agent"}}
+        response = client.post("/v1/architect/publish", json={"agent_definition": agent_def, "slug": "my-agent"})
+        assert response.status_code == 400
+        assert "Failed to parse agent definition" in response.json()["detail"]
+
+
+def test_publish_agent_seal_failure(client: TestClient, overrides: None, mock_anchor: MagicMock) -> None:
+    # Mock ManifestLoader to return valid object
+    with pytest.MonkeyPatch.context() as m:
+        mock_loader = MagicMock()
+        mock_def = MagicMock()
+        mock_def.metadata.name = "my-agent"
+        mock_loader.load_from_dict.return_value = mock_def
+        m.setattr("coreason_manifest.loader.ManifestLoader", mock_loader)
+
+        mock_anchor.seal.side_effect = Exception("Sealing Error")
+
+        agent_def = {"metadata": {"name": "my-agent"}}
+        response = client.post("/v1/architect/publish", json={"agent_definition": agent_def, "slug": "my-agent"})
+        assert response.status_code == 500
+        assert "Failed to seal artifact" in response.json()["detail"]
