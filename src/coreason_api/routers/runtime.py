@@ -12,14 +12,11 @@ import uuid
 from typing import Annotated, Any, Dict, Optional
 
 from coreason_identity.manager import IdentityManager
-from coreason_mcp.session_manager import SessionManager
-
-# from coreason_mcp.types import SessionContext  # Not available in installed package
 from coreason_veritas.auditor import IERLogger as Auditor
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
-from coreason_api.adapters import BudgetAdapter
+from coreason_api.adapters import BudgetAdapter, MCPAdapter
 from coreason_api.dependencies import (
     get_auditor,
     get_budget_guard,
@@ -51,7 +48,7 @@ async def run_agent(
     identity: IdentityManager = Depends(get_identity_manager),  # noqa: B008
     budget: BudgetAdapter = Depends(get_budget_guard),  # noqa: B008
     auditor: Auditor = Depends(get_auditor),  # noqa: B008
-    mcp: SessionManager = Depends(get_session_manager),  # noqa: B008
+    mcp: MCPAdapter = Depends(get_session_manager),  # noqa: B008
 ) -> RunResponse:
     """
     Execute an agent via the Production Runtime.

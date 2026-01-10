@@ -11,7 +11,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from coreason_api.adapters import AnchorAdapter, BudgetAdapter, VaultAdapter
+from coreason_api.adapters import AnchorAdapter, BudgetAdapter, MCPAdapter, VaultAdapter
 
 
 def test_vault_adapter() -> None:
@@ -118,3 +118,34 @@ def test_anchor_adapter() -> None:
 
         assert sig == "hex_signature"
         mock_interceptor.seal.assert_called_with({"key": "value"})
+
+
+@pytest.mark.anyio  # type: ignore[misc]
+async def test_mcp_adapter() -> None:
+    with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
+        adapter = MCPAdapter()
+        assert mock_sm_cls.called
+
+        # Test execute_agent
+        result = await adapter.execute_agent("agent-123", {"input": "val"}, {"context": "val"})
+
+        assert result["status"] == "success"
+        assert result["agent_id"] == "agent-123"
+        assert result["mock_output"] == "Agent executed via Adapter"
+
+
+def test_mcp_adapter_initialization_failure() -> None:
+    with patch("coreason_api.adapters.SessionManager", side_effect=Exception("Init Failed")):
+        with pytest.raises(Exception, match="Init Failed"):
+            MCPAdapter()
+
+
+@pytest.mark.anyio  # type: ignore[misc]
+async def test_mcp_adapter_empty_inputs() -> None:
+    with patch("coreason_api.adapters.SessionManager"):
+        adapter = MCPAdapter()
+        # Test empty inputs
+        result = await adapter.execute_agent("", {}, {})
+
+        assert result["status"] == "success"
+        assert result["agent_id"] == ""
