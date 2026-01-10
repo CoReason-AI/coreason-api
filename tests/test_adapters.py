@@ -123,7 +123,6 @@ def test_anchor_adapter() -> None:
 @pytest.mark.anyio  # type: ignore[misc]
 async def test_mcp_adapter() -> None:
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
-        # We don't use the inner session manager yet, but we initialize it
         adapter = MCPAdapter()
         assert mock_sm_cls.called
 
@@ -133,3 +132,20 @@ async def test_mcp_adapter() -> None:
         assert result["status"] == "success"
         assert result["agent_id"] == "agent-123"
         assert result["mock_output"] == "Agent executed via Adapter"
+
+
+def test_mcp_adapter_initialization_failure() -> None:
+    with patch("coreason_api.adapters.SessionManager", side_effect=Exception("Init Failed")):
+        with pytest.raises(Exception, match="Init Failed"):
+            MCPAdapter()
+
+
+@pytest.mark.anyio  # type: ignore[misc]
+async def test_mcp_adapter_empty_inputs() -> None:
+    with patch("coreason_api.adapters.SessionManager"):
+        adapter = MCPAdapter()
+        # Test empty inputs
+        result = await adapter.execute_agent("", {}, {})
+
+        assert result["status"] == "success"
+        assert result["agent_id"] == ""

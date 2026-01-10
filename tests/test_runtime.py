@@ -270,3 +270,20 @@ def test_run_agent_zero_cost(mock_dependencies: Dict[str, Any]) -> None:
         amount=0.0,
         context={"agent_id": "test-agent-123", "transaction_type": "agent_execution"},
     )
+
+
+def test_run_agent_large_payload(mock_dependencies: Dict[str, Any]) -> None:
+    # Construct a large input payload (e.g. 1MB string)
+    large_string = "a" * 1024 * 1024
+    response = client.post(
+        "/v1/run/test-agent-123",
+        json={"input_data": {"query": large_string}, "cost_estimate": 1.0},
+        headers={"Authorization": "Bearer valid-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["result"]["status"] == "success"
+
+    mock_dependencies["mcp"].execute_agent.assert_called_once()
+    kwargs = mock_dependencies["mcp"].execute_agent.call_args.kwargs
+    assert kwargs["input_data"]["query"] == large_string
