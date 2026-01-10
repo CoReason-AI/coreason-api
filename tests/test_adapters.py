@@ -151,7 +151,7 @@ async def test_mcp_adapter() -> None:
         assert config_arg.url == "http://mock"
 
         # Assert call_tool
-        session_mock.call_tool.assert_awaited_once_with(name="agent-123", arguments={"input": "val"})
+        session_mock.call_tool.assert_awaited_once_with(name="agent-123", arguments={"input": "val", "context": "val"})
         assert result["status"] == "success"
         assert result["output"] == "real_output"
 
@@ -253,8 +253,9 @@ async def test_mcp_adapter_complex_nested_input() -> None:
 
         await adapter.execute_agent("agent-complex", complex_input, complex_context)
 
-        # We only pass input_data to call_tool arguments
-        session_mock.call_tool.assert_awaited_once_with(name="agent-complex", arguments=complex_input)
+        # We merge input_data and context into call_tool arguments
+        expected_arguments = {**complex_context, **complex_input}
+        session_mock.call_tool.assert_awaited_once_with(name="agent-complex", arguments=expected_arguments)
 
 
 @pytest.mark.anyio  # type: ignore[misc]

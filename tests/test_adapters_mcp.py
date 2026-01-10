@@ -53,4 +53,4 @@ async def test_mcp_adapter_execute_agent(mock_session_manager: Tuple[MagicMock, 
     assert config_arg.name == "agent-my-agent"
 
     # Check call_tool
-    session_mock.call_tool.assert_awaited_once_with(name="my-agent", arguments={"key": "value"})
+    session_mock.call_tool.assert_awaited_once_with(name="my-agent", arguments={"key": "value", "user": "test"})

@@ -116,7 +116,11 @@ class MCPAdapter:
 
         # Connect and execute
         async with self._session_manager.connect(config) as session:
+            # Merge context into arguments. Input data takes precedence over context.
+            # We assume the agent expects context fields at the top level or we're enriching the input.
+            arguments = {**context, **input_data}
+
             # We assume the agent_id maps to a tool name on the server
             logger.debug(f"Calling tool '{agent_id}' with input data")
-            result = await session.call_tool(name=agent_id, arguments=input_data)
+            result = await session.call_tool(name=agent_id, arguments=arguments)
             return result
