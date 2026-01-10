@@ -13,6 +13,8 @@ from typing import Annotated, Any, Dict, Optional
 
 from coreason_identity.manager import IdentityManager
 from coreason_veritas.auditor import IERLogger as Auditor
+from coreason_veritas.exceptions import ComplianceViolationError
+from coreason_veritas.gatekeeper import PolicyGuard
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -21,6 +23,7 @@ from coreason_api.dependencies import (
     get_auditor,
     get_budget_guard,
     get_identity_manager,
+    get_policy_guard,
     get_session_manager,
 )
 from coreason_api.utils.logger import logger
@@ -46,6 +49,7 @@ async def run_agent(
     background_tasks: BackgroundTasks,
     authorization: Annotated[Optional[str], Header()] = None,
     identity: IdentityManager = Depends(get_identity_manager),  # noqa: B008
+    policy_guard: PolicyGuard = Depends(get_policy_guard),  # noqa: B008
     budget: BudgetAdapter = Depends(get_budget_guard),  # noqa: B008
     auditor: Auditor = Depends(get_auditor),  # noqa: B008
     mcp: MCPAdapter = Depends(get_session_manager),  # noqa: B008
@@ -55,7 +59,7 @@ async def run_agent(
     Enforces the Chain of Command:
     1. Tracing (Middleware)
     2. Authentication
-    3. Policy Check (Optional)
+    3. Policy Check
     4. Budget Check
     5. Audit Start
     6. Execution
@@ -78,10 +82,27 @@ async def run_agent(
             detail="Invalid authentication credentials",
         ) from e
 
-    user_id = user_context.user_id
+    # Fix: UserContext uses 'sub', not 'user_id'
+    user_id = user_context.sub
 
-    # 3. Policy Check (Optional - Placeholder)
-    # verify_agent_access(agent_id, user_context)
+    # 3. Policy Check
+    try:
+        # Convert Pydantic UserContext to Dict for PolicyGuard
+        # Using model_dump() if available (Pydantic v2), else dict()
+        user_ctx_dict = user_context.model_dump()
+        policy_guard.verify_access(agent_id=agent_id, user_context=user_ctx_dict)
+    except ComplianceViolationError as e:
+        logger.warning(f"Policy Violation: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Policy violation: {e}",
+        ) from e
+    except Exception as e:
+        logger.error(f"Policy check failed unexpectedly: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Policy check failed",
+        ) from e
 
     # 4. Budget Check
     try:

@@ -16,11 +16,13 @@ from coreason_api.dependencies import (
     get_auditor,
     get_budget_guard,
     get_identity_manager,
+    get_policy_guard,
     get_session_manager,
 )
 from coreason_api.routers.runtime import router
 from coreason_identity.manager import IdentityManager
 from coreason_veritas.auditor import IERLogger as Auditor
+from coreason_veritas.gatekeeper import PolicyGuard
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -29,7 +31,11 @@ from fastapi.testclient import TestClient
 def mock_identity() -> MagicMock:
     mock = MagicMock(spec=IdentityManager)
     user_context = MagicMock()
-    user_context.user_id = "test-user"
+    # Fix: UserContext uses 'sub', not 'user_id'
+    user_context.sub = "test-user"
+    del user_context.user_id
+    # Mock model_dump for PolicyGuard usage (though edge cases might not reach it if they fail validation first)
+    user_context.model_dump.return_value = {"sub": "test-user"}
     mock.validate_token = AsyncMock(return_value=user_context)
     return mock
 
@@ -57,11 +63,18 @@ def mock_mcp() -> MagicMock:
 
 
 @pytest.fixture
+def mock_policy() -> MagicMock:
+    mock = MagicMock(spec=PolicyGuard)
+    mock.verify_access.return_value = True
+    return mock
+
+@pytest.fixture
 def client(
     mock_identity: MagicMock,
     mock_budget: MagicMock,
     mock_auditor: MagicMock,
     mock_mcp: MagicMock,
+    mock_policy: MagicMock,
 ) -> TestClient:
     app = FastAPI()
     app.include_router(router)
@@ -70,6 +83,7 @@ def client(
     app.dependency_overrides[get_budget_guard] = lambda: mock_budget
     app.dependency_overrides[get_auditor] = lambda: mock_auditor
     app.dependency_overrides[get_session_manager] = lambda: mock_mcp
+    app.dependency_overrides[get_policy_guard] = lambda: mock_policy
 
     return TestClient(app)
 

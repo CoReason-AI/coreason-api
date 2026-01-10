@@ -16,7 +16,7 @@ pydantic-settings = "^2.12.0"
 coreason-vault = "^0.1.0"
 coreason-identity = "^0.1.0"
 coreason-budget = "^0.1.0"
-coreason-veritas = "^0.7.0"
+coreason-veritas = "^0.8.0"
 coreason-mcp = "^0.1.0"
 coreason-manifest = "^0.1.0"
 
