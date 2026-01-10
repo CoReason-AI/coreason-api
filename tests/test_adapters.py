@@ -123,15 +123,22 @@ def test_anchor_adapter() -> None:
 @pytest.mark.anyio  # type: ignore[misc]
 async def test_mcp_adapter() -> None:
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
+        mock_sm_instance = mock_sm_cls.return_value
+        # Configure the mock to return a result when execute_agent is called
+        mock_sm_instance.execute_agent = AsyncMock(
+            return_value={"status": "success", "agent_id": "agent-123", "output": "real_output"}
+        )
+
         adapter = MCPAdapter()
         assert mock_sm_cls.called
 
         # Test execute_agent
         result = await adapter.execute_agent("agent-123", {"input": "val"}, {"context": "val"})
 
+        # Assert delegation
+        mock_sm_instance.execute_agent.assert_called_once_with("agent-123", {"input": "val"}, {"context": "val"})
         assert result["status"] == "success"
-        assert result["agent_id"] == "agent-123"
-        assert result["mock_output"] == "Agent executed via Adapter"
+        assert result["output"] == "real_output"
 
 
 def test_mcp_adapter_initialization_failure() -> None:
@@ -142,10 +149,15 @@ def test_mcp_adapter_initialization_failure() -> None:
 
 @pytest.mark.anyio  # type: ignore[misc]
 async def test_mcp_adapter_empty_inputs() -> None:
-    with patch("coreason_api.adapters.SessionManager"):
+    with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
+        mock_sm_instance = mock_sm_cls.return_value
+        mock_sm_instance.execute_agent = AsyncMock(
+            return_value={"status": "error", "message": "empty inputs"}
+        )
+
         adapter = MCPAdapter()
         # Test empty inputs
         result = await adapter.execute_agent("", {}, {})
 
-        assert result["status"] == "success"
-        assert result["agent_id"] == ""
+        mock_sm_instance.execute_agent.assert_called_once_with("", {}, {})
+        assert result["status"] == "error"
