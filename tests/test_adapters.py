@@ -11,6 +11,9 @@
 import asyncio
 from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
+import os
+from pydantic import ValidationError
+from coreason_budget.config import CoreasonBudgetConfig
 
 import pytest
 from coreason_api.adapters import AnchorAdapter, BudgetAdapter, MCPAdapter, VaultAdapter
@@ -251,3 +254,36 @@ async def test_mcp_adapter_sequential_calls() -> None:
             await adapter.execute_agent(f"agent-{i}", {}, {})
 
         assert mock_sm_instance.execute_agent.call_count == 3
+
+
+def test_budget_adapter_init_without_env_var() -> None:
+    """
+    Test that BudgetAdapter works when initialized with explicit db_url,
+    even if REDIS_URL env var is missing.
+    """
+    # Temporarily unset REDIS_URL if present
+    old_value = os.environ.get("REDIS_URL")
+    if old_value:
+        del os.environ["REDIS_URL"]
+
+    try:
+        # Verify that initializing CoreasonBudgetConfig without args fails
+        with pytest.raises(ValidationError):
+            CoreasonBudgetConfig()
+
+        # Now verify that BudgetAdapter works because we fixed it (expected to fail before fix)
+        db_url = "redis://localhost:6379/1"
+
+        # We mock RedisLedger to avoid actual connection attempts
+        with patch("coreason_api.adapters.RedisLedger") as MockLedger:
+            adapter = BudgetAdapter(db_url=db_url)
+
+            # Verify config was initialized with the passed url
+            assert adapter._config.redis_url == db_url
+
+            # Verify ledger was initialized with the passed url
+            MockLedger.assert_called_with(redis_url=db_url)
+    finally:
+        # Restore env var
+        if old_value:
+            os.environ["REDIS_URL"] = old_value

@@ -53,7 +53,9 @@ class BudgetAdapter:
     def __init__(self, db_url: str) -> None:
         # PRD implies db_url is used. Installed uses RedisLedger.
         # We'll assume db_url from PRD maps to Redis URL for the ledger.
-        self._config = CoreasonBudgetConfig()
+        # Ensure config receives the db_url (mapped to redis_url) to avoid ValidationError
+        # if REDIS_URL is not set in environment.
+        self._config = CoreasonBudgetConfig(redis_url=db_url)
         self._ledger = RedisLedger(redis_url=db_url)
         self._guard = BudgetGuard(config=self._config, ledger=self._ledger)
 
