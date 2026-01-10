@@ -92,12 +92,12 @@ def test_get_gatekeeper(mock_settings: Settings) -> None:
         MockGatekeeper.assert_called_once_with(public_key_store="public_key")
 
 
-def test_get_session_manager() -> None:
+def test_get_session_manager(mock_settings: Settings) -> None:
     with patch("coreason_api.dependencies.MCPAdapter") as MockAdapter:
         get_session_manager.cache_clear()
-        manager = get_session_manager()
+        manager = get_session_manager(mock_settings)
         assert manager is MockAdapter.return_value
-        MockAdapter.assert_called_once()
+        MockAdapter.assert_called_once_with(server_url=mock_settings.MCP_SERVER_URL)
 
 
 def test_get_manifest_validator() -> None:
@@ -163,10 +163,18 @@ def test_anchor_adapter() -> None:
 
 @pytest.mark.asyncio  # type: ignore[misc]
 async def test_mcp_adapter() -> None:
+    # This duplicates tests/test_adapters.py but serves as a quick check here too
+    # Updated to match new signature
     with patch("coreason_api.adapters.SessionManager") as MockManager:
-        adapter = MCPAdapter()
-        MockManager.return_value.execute_agent = AsyncMock(return_value="result")
+        session_mock = AsyncMock()
+        session_mock.call_tool = AsyncMock(return_value="result")
+        connect_ctx = AsyncMock()
+        connect_ctx.__aenter__.return_value = session_mock
+        MockManager.return_value.connect.return_value = connect_ctx
+
+        adapter = MCPAdapter(server_url="http://test")
 
         res = await adapter.execute_agent("agent", {}, {})
         assert res == "result"
-        MockManager.return_value.execute_agent.assert_called_once_with("agent", {}, {})
+        MockManager.return_value.connect.assert_called_once()
+        session_mock.call_tool.assert_awaited_once_with(name="agent", arguments={})

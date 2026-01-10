@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from coreason_api.adapters import AnchorAdapter, BudgetAdapter, MCPAdapter, VaultAdapter
+from coreason_mcp.config import McpServerConfig
 
 
 def test_vault_adapter() -> None:
@@ -126,19 +127,31 @@ def test_anchor_adapter() -> None:
 async def test_mcp_adapter() -> None:
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
         mock_sm_instance = mock_sm_cls.return_value
-        # Configure the mock to return a result when execute_agent is called
-        mock_sm_instance.execute_agent = AsyncMock(
+
+        # Setup session context manager mock
+        session_mock = AsyncMock()
+        session_mock.call_tool = AsyncMock(
             return_value={"status": "success", "agent_id": "agent-123", "output": "real_output"}
         )
+        connect_ctx = AsyncMock()
+        connect_ctx.__aenter__.return_value = session_mock
+        connect_ctx.__aexit__.return_value = None
+        mock_sm_instance.connect.return_value = connect_ctx
 
-        adapter = MCPAdapter()
+        adapter = MCPAdapter(server_url="http://mock")
         assert mock_sm_cls.called
 
         # Test execute_agent
         result = await adapter.execute_agent("agent-123", {"input": "val"}, {"context": "val"})
 
-        # Assert delegation
-        mock_sm_instance.execute_agent.assert_called_once_with("agent-123", {"input": "val"}, {"context": "val"})
+        # Assert connection
+        mock_sm_instance.connect.assert_called_once()
+        config_arg = mock_sm_instance.connect.call_args[0][0]
+        assert isinstance(config_arg, McpServerConfig)
+        assert config_arg.url == "http://mock"
+
+        # Assert call_tool
+        session_mock.call_tool.assert_awaited_once_with(name="agent-123", arguments={"input": "val"})
         assert result["status"] == "success"
         assert result["output"] == "real_output"
 
@@ -146,20 +159,26 @@ async def test_mcp_adapter() -> None:
 def test_mcp_adapter_initialization_failure() -> None:
     with patch("coreason_api.adapters.SessionManager", side_effect=Exception("Init Failed")):
         with pytest.raises(Exception, match="Init Failed"):
-            MCPAdapter()
+            MCPAdapter(server_url="http://mock")
 
 
 @pytest.mark.anyio  # type: ignore[misc]
 async def test_mcp_adapter_empty_inputs() -> None:
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
         mock_sm_instance = mock_sm_cls.return_value
-        mock_sm_instance.execute_agent = AsyncMock(return_value={"status": "error", "message": "empty inputs"})
 
-        adapter = MCPAdapter()
+        session_mock = AsyncMock()
+        session_mock.call_tool = AsyncMock(return_value={"status": "error", "message": "empty inputs"})
+        connect_ctx = AsyncMock()
+        connect_ctx.__aenter__.return_value = session_mock
+        connect_ctx.__aexit__.return_value = None
+        mock_sm_instance.connect.return_value = connect_ctx
+
+        adapter = MCPAdapter(server_url="http://mock")
         # Test empty inputs
         result = await adapter.execute_agent("", {}, {})
 
-        mock_sm_instance.execute_agent.assert_called_once_with("", {}, {})
+        session_mock.call_tool.assert_awaited_once_with(name="", arguments={})
         assert result["status"] == "error"
 
 
@@ -168,11 +187,13 @@ async def test_mcp_adapter_propagates_exceptions() -> None:
     """Test that the adapter correctly propagates exceptions from SessionManager."""
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
         mock_sm_instance = mock_sm_cls.return_value
-        mock_sm_instance.execute_agent = AsyncMock(side_effect=ValueError("Unknown agent"))
 
-        adapter = MCPAdapter()
+        # Simulate connect failure
+        mock_sm_instance.connect.side_effect = ValueError("Connect Failed")
 
-        with pytest.raises(ValueError, match="Unknown agent"):
+        adapter = MCPAdapter(server_url="http://mock")
+
+        with pytest.raises(ValueError, match="Connect Failed"):
             await adapter.execute_agent("invalid-agent", {}, {})
 
 
@@ -181,9 +202,24 @@ async def test_mcp_adapter_concurrent_calls() -> None:
     """Test that the adapter handles concurrent execution requests properly."""
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
         mock_sm_instance = mock_sm_cls.return_value
-        mock_sm_instance.execute_agent = AsyncMock(side_effect=lambda a, i, c: {"id": a})
 
-        adapter = MCPAdapter()
+        # Need separate mocks for each call if we want strict verification,
+        # but for simple concurrency check, returning a new context manager is fine.
+        # But side_effect needs to be callable
+
+        def side_effect_connect(config: Any) -> AsyncMock:
+            session_mock = AsyncMock()
+            # We can make call_tool return something based on config
+            agent_id = config.name.replace("agent-", "")
+            session_mock.call_tool.return_value = {"id": f"agent-{agent_id}"}
+
+            ctx = AsyncMock()
+            ctx.__aenter__.return_value = session_mock
+            return ctx
+
+        mock_sm_instance.connect.side_effect = side_effect_connect
+
+        adapter = MCPAdapter(server_url="http://mock")
 
         # Simulate 5 concurrent calls
         tasks = [adapter.execute_agent(f"agent-{i}", {}, {}) for i in range(5)]
@@ -191,7 +227,7 @@ async def test_mcp_adapter_concurrent_calls() -> None:
 
         assert len(results) == 5
         assert {r["id"] for r in results} == {f"agent-{i}" for i in range(5)}
-        assert mock_sm_instance.execute_agent.call_count == 5
+        assert mock_sm_instance.connect.call_count == 5
 
 
 @pytest.mark.anyio  # type: ignore[misc]
@@ -199,9 +235,14 @@ async def test_mcp_adapter_complex_nested_input() -> None:
     """Test that complex nested data structures are passed through correctly."""
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
         mock_sm_instance = mock_sm_cls.return_value
-        mock_sm_instance.execute_agent = AsyncMock(return_value={})
 
-        adapter = MCPAdapter()
+        session_mock = AsyncMock()
+        session_mock.call_tool = AsyncMock(return_value={})
+        connect_ctx = AsyncMock()
+        connect_ctx.__aenter__.return_value = session_mock
+        mock_sm_instance.connect.return_value = connect_ctx
+
+        adapter = MCPAdapter(server_url="http://mock")
 
         complex_input: Dict[str, Any] = {
             "query": "complex",
@@ -212,7 +253,8 @@ async def test_mcp_adapter_complex_nested_input() -> None:
 
         await adapter.execute_agent("agent-complex", complex_input, complex_context)
 
-        mock_sm_instance.execute_agent.assert_called_once_with("agent-complex", complex_input, complex_context)
+        # We only pass input_data to call_tool arguments
+        session_mock.call_tool.assert_awaited_once_with(name="agent-complex", arguments=complex_input)
 
 
 @pytest.mark.anyio  # type: ignore[misc]
@@ -220,9 +262,14 @@ async def test_mcp_adapter_huge_payload() -> None:
     """Test that the adapter handles large payloads without issues."""
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
         mock_sm_instance = mock_sm_cls.return_value
-        mock_sm_instance.execute_agent = AsyncMock(return_value={})
 
-        adapter = MCPAdapter()
+        session_mock = AsyncMock()
+        session_mock.call_tool = AsyncMock(return_value={})
+        connect_ctx = AsyncMock()
+        connect_ctx.__aenter__.return_value = session_mock
+        mock_sm_instance.connect.return_value = connect_ctx
+
+        adapter = MCPAdapter(server_url="http://mock")
 
         # Create a large input (e.g. 1MB string)
         huge_string = "x" * 1024 * 1024
@@ -230,10 +277,11 @@ async def test_mcp_adapter_huge_payload() -> None:
 
         await adapter.execute_agent("agent-huge", huge_input, {})
 
-        mock_sm_instance.execute_agent.assert_called_once()
+        mock_sm_instance.connect.assert_called_once()
+        session_mock.call_tool.assert_awaited_once()
         # Verify the large string was passed correctly
-        call_args = mock_sm_instance.execute_agent.call_args
-        assert call_args[0][1]["data"] == huge_string
+        call_args = session_mock.call_tool.call_args
+        assert call_args[1]["arguments"]["data"] == huge_string
 
 
 @pytest.mark.anyio  # type: ignore[misc]
@@ -241,13 +289,16 @@ async def test_mcp_adapter_sequential_calls() -> None:
     """Test that the adapter instance can be reused for sequential calls."""
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
         mock_sm_instance = mock_sm_cls.return_value
-        # Return dynamic result based on call count or args could be done,
-        # but simple return value is enough to verify call_count.
-        mock_sm_instance.execute_agent = AsyncMock(return_value="success")
 
-        adapter = MCPAdapter()
+        session_mock = AsyncMock()
+        session_mock.call_tool = AsyncMock(return_value="success")
+        connect_ctx = AsyncMock()
+        connect_ctx.__aenter__.return_value = session_mock
+        mock_sm_instance.connect.return_value = connect_ctx
+
+        adapter = MCPAdapter(server_url="http://mock")
 
         for i in range(3):
             await adapter.execute_agent(f"agent-{i}", {}, {})
 
-        assert mock_sm_instance.execute_agent.call_count == 3
+        assert mock_sm_instance.connect.call_count == 3

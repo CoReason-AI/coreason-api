@@ -78,6 +78,7 @@ class Settings(BaseSettings):
     # Infrastructure Settings (Defaults provided for dev/test)
     DATABASE_URL: str = "postgresql://coreason:coreason@localhost:5432/coreason_db"
     REDIS_URL: str = "redis://localhost:6379/0"
+    MCP_SERVER_URL: str = "http://localhost:8080/sse"
 
     # Governance / Veritas
     # Default is a dummy public key for development/testing (Syntactically valid 2048-bit RSA)

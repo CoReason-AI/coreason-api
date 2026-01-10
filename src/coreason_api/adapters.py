@@ -13,6 +13,7 @@ from typing import Any, Dict
 from coreason_budget.config import CoreasonBudgetConfig
 from coreason_budget.guard import BudgetGuard
 from coreason_budget.ledger import RedisLedger
+from coreason_mcp.config import McpServerConfig
 from coreason_mcp.session_manager import SessionManager
 from coreason_vault import VaultManager
 from coreason_vault.config import CoreasonVaultConfig
@@ -96,18 +97,26 @@ class MCPAdapter:
 
     Installed:
       SessionManager.connect(config, timeout) -> yields ClientSession
-      SessionManager.execute_agent(agent_id, input_data, context)
+      # No execute_agent in installed package. We bridge this.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, server_url: str) -> None:
         self._session_manager = SessionManager()
+        self.server_url = server_url
 
     async def execute_agent(self, agent_id: str, input_data: Dict[str, Any], context: Dict[str, Any]) -> Any:
         """
-        Execute an agent.
-        Delegates to the underlying SessionManager execution engine.
+        Execute an agent by connecting to the configured MCP server
+        and calling the tool corresponding to the agent_id.
         """
-        logger.info(f"Connecting to MCP for Agent {agent_id}...")
+        logger.info(f"Connecting to MCP server at {self.server_url} for Agent {agent_id}...")
 
-        # We delegate directly to the installed package's logic
-        return await self._session_manager.execute_agent(agent_id, input_data, context)
+        # Create configuration for connection
+        config = McpServerConfig(name=f"agent-{agent_id}", url=self.server_url)
+
+        # Connect and execute
+        async with self._session_manager.connect(config) as session:
+            # We assume the agent_id maps to a tool name on the server
+            logger.debug(f"Calling tool '{agent_id}' with input data")
+            result = await session.call_tool(name=agent_id, arguments=input_data)
+            return result
