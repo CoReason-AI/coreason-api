@@ -77,6 +77,44 @@ class TestRuntimePolicy:
         # Verify Audit was NOT called
         mock_auditor.log_event.assert_not_called()
 
+    def test_run_agent_policy_returns_false(self) -> None:
+        """
+        Test that the runtime endpoint returns 403 Forbidden when Policy Check returns False.
+        """
+        mock_identity_manager = MagicMock()
+        mock_identity_manager.validate_token = AsyncMock(
+            return_value=UserContext(
+                sub="user_123",
+                email="test@example.com",
+                project_context=None,
+                permissions=[],
+            )
+        )
+        app.dependency_overrides[get_identity_manager] = lambda: mock_identity_manager
+
+        mock_policy_guard = MagicMock(spec=PolicyGuard)
+        mock_policy_guard.verify_access.return_value = False
+        app.dependency_overrides[get_policy_guard] = lambda: mock_policy_guard
+
+        # Mock other dependencies
+        mock_budget = MagicMock()
+        app.dependency_overrides[get_budget_guard] = lambda: mock_budget
+        mock_auditor = MagicMock()
+        app.dependency_overrides[get_auditor] = lambda: mock_auditor
+        mock_mcp = MagicMock()
+        app.dependency_overrides[get_session_manager] = lambda: mock_mcp
+
+        # Execute Request
+        response = self.client.post(
+            "/v1/run/agent_x",
+            json={"input_data": {"foo": "bar"}},
+            headers={"Authorization": "Bearer valid_token"},
+        )
+
+        # Verify Response
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Access denied by policy"
+
     def test_run_agent_policy_error(self) -> None:
         """
         Test that the runtime endpoint returns 500 Internal Server Error when Policy Check raises generic exception.
@@ -171,3 +209,58 @@ class TestRuntimePolicy:
             "permissions": [],
         }
         mock_policy_guard.verify_access.assert_called_once_with(agent_id="agent_x", user_context=user_ctx_dict)
+
+    def test_run_agent_policy_rich_context(self) -> None:
+        """
+        Test that complex context data (project_context, permissions) is passed correctly to PolicyGuard.
+        """
+        mock_identity_manager = MagicMock()
+        project_ctx = '{"id": "proj_999", "role": "admin"}'
+        permissions = ["read:agents", "exec:agent_y"]
+
+        mock_identity_manager.validate_token = AsyncMock(
+            return_value=UserContext(
+                sub="user_rich",
+                email="rich@example.com",
+                project_context=project_ctx,
+                permissions=permissions,
+            )
+        )
+        app.dependency_overrides[get_identity_manager] = lambda: mock_identity_manager
+
+        mock_policy_guard = MagicMock(spec=PolicyGuard)
+        mock_policy_guard.verify_access.return_value = True
+        app.dependency_overrides[get_policy_guard] = lambda: mock_policy_guard
+
+        # Mock other dependencies
+        mock_budget = MagicMock()
+        mock_budget.check_quota = AsyncMock(return_value=True)
+        mock_budget.record_transaction = MagicMock()
+        app.dependency_overrides[get_budget_guard] = lambda: mock_budget
+
+        mock_auditor = MagicMock()
+        mock_auditor.log_event = AsyncMock()
+        app.dependency_overrides[get_auditor] = lambda: mock_auditor
+
+        mock_mcp = MagicMock()
+        mock_mcp.execute_agent = AsyncMock(return_value="Success")
+        app.dependency_overrides[get_session_manager] = lambda: mock_mcp
+
+        # Execute Request
+        self.client.post(
+            "/v1/run/agent_y",
+            json={"input_data": {}},
+            headers={"Authorization": "Bearer valid_token"},
+        )
+
+        # Verify arguments passed to verify_access
+        expected_ctx: Dict[str, Any] = {
+            "sub": "user_rich",
+            "email": "rich@example.com",
+            "project_context": project_ctx,
+            "permissions": permissions,
+        }
+        mock_policy_guard.verify_access.assert_called_once_with(
+            agent_id="agent_y",
+            user_context=expected_ctx
+        )

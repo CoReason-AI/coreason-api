@@ -90,13 +90,20 @@ async def run_agent(
         # Convert Pydantic UserContext to Dict for PolicyGuard
         # Using model_dump() if available (Pydantic v2), else dict()
         user_ctx_dict = user_context.model_dump()
-        policy_guard.verify_access(agent_id=agent_id, user_context=user_ctx_dict)
+        if not policy_guard.verify_access(agent_id=agent_id, user_context=user_ctx_dict):
+            logger.warning(f"Policy Check Denied (Soft): Agent {agent_id} for user {user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied by policy",
+            )
     except ComplianceViolationError as e:
         logger.warning(f"Policy Violation: {e}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Policy violation: {e}",
         ) from e
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Policy check failed unexpectedly: {e}")
         raise HTTPException(
