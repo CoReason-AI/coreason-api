@@ -86,11 +86,11 @@ def get_gatekeeper(settings: Annotated[Settings, Depends(get_settings)]) -> Gate
 
 
 @lru_cache
-def get_session_manager() -> MCPAdapter:
+def get_session_manager(settings: Annotated[Settings, Depends(get_settings)]) -> MCPAdapter:
     """
     Returns a singleton instance of MCPAdapter (wrapping SessionManager).
     """
-    return MCPAdapter()
+    return MCPAdapter(server_url=settings.MCP_SERVER_URL)
 
 
 @lru_cache
