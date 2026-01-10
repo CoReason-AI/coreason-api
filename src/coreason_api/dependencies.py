@@ -26,6 +26,7 @@ from coreason_vault.config import CoreasonVaultConfig
 from coreason_veritas.auditor import IERLogger as Auditor
 
 # Veritas: PRD says `Gatekeeper`, package has `SignatureValidator`.
+from coreason_veritas.gatekeeper import PolicyGuard
 from coreason_veritas.gatekeeper import SignatureValidator as Gatekeeper
 from fastapi import Depends
 
@@ -83,6 +84,14 @@ def get_gatekeeper(settings: Annotated[Settings, Depends(get_settings)]) -> Gate
     # We must ensure settings.SRB_PUBLIC_KEY is a valid PEM or handle the error if it's dummy.
     # For now, we assume the dummy value in dev config is acceptable or we should mock it in tests.
     return Gatekeeper(public_key_store=settings.SRB_PUBLIC_KEY)
+
+
+@lru_cache
+def get_policy_guard() -> PolicyGuard:
+    """
+    Returns a singleton instance of PolicyGuard.
+    """
+    return PolicyGuard()
 
 
 @lru_cache
