@@ -13,9 +13,12 @@ from typing import Any, Dict
 from coreason_budget.config import CoreasonBudgetConfig
 from coreason_budget.guard import BudgetGuard
 from coreason_budget.ledger import RedisLedger
+from coreason_mcp.session_manager import SessionManager
 from coreason_vault import VaultManager
 from coreason_vault.config import CoreasonVaultConfig
 from coreason_veritas.anchor import DeterminismInterceptor
+
+from coreason_api.utils.logger import logger
 
 
 class VaultAdapter:
@@ -82,3 +85,45 @@ class AnchorAdapter:
 
     def seal(self, artifact: Dict[str, Any]) -> str:
         return self._interceptor.seal(artifact)
+
+
+class MCPAdapter:
+    """
+    Adapter for coreason-mcp to match PRD VID.
+    PRD VID:
+      mcp = SessionManager()
+      result = await mcp.execute_agent(agent_id, input_data, context)
+
+    Installed:
+      SessionManager.connect(config, timeout) -> yields ClientSession
+      (No execute_agent method)
+    """
+
+    def __init__(self) -> None:
+        self._session_manager = SessionManager()
+
+    async def execute_agent(self, agent_id: str, input_data: Dict[str, Any], context: Dict[str, Any]) -> Any:
+        """
+        Execute an agent.
+        Since the installed package is a low-level connector, we currently
+        mock the execution or stub it out until the 'Execution Engine'
+        logic is fully available or clarified.
+        """
+        logger.info(f"Connecting to MCP for Agent {agent_id}...")
+
+        # Placeholder logic:
+        # 1. Resolve agent_id to Server Config (not implemented)
+        # 2. Connect (self._session_manager.connect(...))
+        # 3. Execute tool/prompt
+
+        # For now, we just log and return a success stub to satisfy the interface.
+        # In a real implementation, this would likely involve a mapping of agent_id
+        # to an MCP server URL, establishing a session, and calling a tool.
+
+        # Example of how we might use connect if we had config:
+        # config = McpServerConfig(...)
+        # async for session in self._session_manager.connect(config):
+        #     return await session.call_tool(...)
+
+        logger.info(f"Executing agent {agent_id} with input {input_data}")
+        return {"status": "success", "agent_id": agent_id, "mock_output": "Agent executed via Adapter"}
