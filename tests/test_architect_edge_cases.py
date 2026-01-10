@@ -8,8 +8,7 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_api
 
-import sys
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from coreason_api.adapters import AnchorAdapter, MCPAdapter
@@ -106,15 +105,10 @@ def test_publish_agent_malformed_definition(client: TestClient, mock_validator: 
 
 def test_publish_agent_isomorphism_failure(client: TestClient) -> None:
     """Test mismatch between slug and name."""
-    # We mock the entire coreason_manifest.loader module using sys.modules
-
-    mock_loader_module = MagicMock()
-    mock_def = MagicMock()
-    mock_def.metadata.name = "Real Name"
-    mock_loader_module.ManifestLoader.load_from_dict.return_value = mock_def
-
-    with pytest.MonkeyPatch.context() as m:
-        m.setitem(sys.modules, "coreason_manifest.loader", mock_loader_module)
+    with patch("coreason_manifest.loader.ManifestLoader.load_from_dict") as mock_load:
+        mock_def = MagicMock()
+        mock_def.metadata.name = "Real Name"
+        mock_load.return_value = mock_def
 
         payload = {
             "slug": "fake-slug",  # Mismatch
@@ -128,14 +122,10 @@ def test_publish_agent_isomorphism_failure(client: TestClient) -> None:
 
 def test_publish_agent_sealing_failure(client: TestClient, mock_anchor: MagicMock) -> None:
     """Test failure during sealing."""
-    # Mock successful name check first
-    mock_loader_module = MagicMock()
-    mock_def = MagicMock()
-    mock_def.metadata.name = "agent-slug"
-    mock_loader_module.ManifestLoader.load_from_dict.return_value = mock_def
-
-    with pytest.MonkeyPatch.context() as m:
-        m.setitem(sys.modules, "coreason_manifest.loader", mock_loader_module)
+    with patch("coreason_manifest.loader.ManifestLoader.load_from_dict") as mock_load:
+        mock_def = MagicMock()
+        mock_def.metadata.name = "agent-slug"
+        mock_load.return_value = mock_def
 
         # Mock sealing failure
         mock_anchor.seal.side_effect = Exception("HSM unreachable")
