@@ -287,3 +287,53 @@ def test_budget_adapter_init_without_env_var() -> None:
         # Restore env var
         if old_value:
             os.environ["REDIS_URL"] = old_value
+
+
+def test_budget_adapter_invalid_url() -> None:
+    """Test initialization with invalid Redis URL."""
+    # The real RedisLedger raises ValueError for invalid schemes
+
+    # We must NOT mock RedisLedger if we want to test its validation,
+    # OR we assume Config raises validation error.
+    # However, in the trace, it was RedisLedger raising ValueError.
+    # So we should expect ValueError.
+
+    with pytest.raises(ValueError, match="Redis URL must specify one of the following schemes"):
+        BudgetAdapter(db_url="http://not-redis.com")
+
+
+@pytest.mark.anyio  # type: ignore[misc]
+async def test_budget_adapter_negative_cost() -> None:
+    """Test behavior with negative cost."""
+    # The adapter propagates the call. The underlying guard might accept or reject it.
+    # Since we mock the guard, we just verify the adapter passes it through.
+    with (
+        patch("coreason_api.adapters.BudgetGuard") as mock_guard_cls,
+        patch("coreason_api.adapters.RedisLedger"),
+        patch("coreason_api.adapters.CoreasonBudgetConfig"),
+    ):
+        mock_guard = mock_guard_cls.return_value
+        mock_guard.check = AsyncMock(return_value=True)
+
+        adapter = BudgetAdapter(db_url="redis://localhost")
+
+        # Checking quota for negative cost (refund?)
+        await adapter.check_quota("user1", -5.0)
+        mock_guard.check.assert_called_with(user_id="user1", cost=-5.0)
+
+
+@pytest.mark.anyio  # type: ignore[misc]
+async def test_budget_adapter_empty_user() -> None:
+    """Test behavior with empty user ID."""
+    with (
+        patch("coreason_api.adapters.BudgetGuard") as mock_guard_cls,
+        patch("coreason_api.adapters.RedisLedger"),
+        patch("coreason_api.adapters.CoreasonBudgetConfig"),
+    ):
+        mock_guard = mock_guard_cls.return_value
+        mock_guard.check = AsyncMock(return_value=True)
+
+        adapter = BudgetAdapter(db_url="redis://localhost")
+
+        await adapter.check_quota("", 10.0)
+        mock_guard.check.assert_called_with(user_id="", cost=10.0)
