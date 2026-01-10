@@ -28,35 +28,35 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def mock_gatekeeper() -> MagicMock:
     mock = MagicMock(spec=Gatekeeper)
     mock.get_policy_instruction_for_llm.return_value = ["Policy 1", "Policy 2"]
     return mock
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def mock_mcp() -> MagicMock:
     mock = MagicMock(spec=MCPAdapter)
     mock.execute_agent = AsyncMock(return_value={"output": "simulated"})
     return mock
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def mock_validator() -> MagicMock:
     mock = MagicMock(spec=ManifestValidator)
     mock.validate.return_value = None
     return mock
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def mock_anchor() -> MagicMock:
     mock = MagicMock(spec=AnchorAdapter)
     mock.seal.return_value = "signature_xyz"
     return mock
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def client(
     mock_gatekeeper: MagicMock,
     mock_mcp: MagicMock,

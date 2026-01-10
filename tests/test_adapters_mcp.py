@@ -16,7 +16,7 @@ from coreason_api.adapters import MCPAdapter
 from coreason_mcp.config import McpServerConfig
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def mock_session_manager() -> Tuple[MagicMock, AsyncMock]:
     manager = MagicMock()
     # Mock the context manager behavior of connect
@@ -32,7 +32,7 @@ def mock_session_manager() -> Tuple[MagicMock, AsyncMock]:
     return manager, session_mock
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_mcp_adapter_execute_agent(mock_session_manager: Tuple[MagicMock, AsyncMock]) -> None:
     manager_mock, session_mock = mock_session_manager
     adapter = MCPAdapter(server_url="http://test-server")

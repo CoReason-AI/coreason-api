@@ -16,7 +16,7 @@ import pytest
 from coreason_api.adapters import MCPAdapter
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def mock_session_manager() -> Tuple[MagicMock, AsyncMock]:
     manager = MagicMock()
     session_mock = AsyncMock()
@@ -30,7 +30,7 @@ def mock_session_manager() -> Tuple[MagicMock, AsyncMock]:
     return manager, session_mock
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_context_propagation(mock_session_manager: Tuple[MagicMock, AsyncMock]) -> None:
     manager_mock, session_mock = mock_session_manager
     adapter = MCPAdapter(server_url="http://test")
@@ -46,7 +46,7 @@ async def test_context_propagation(mock_session_manager: Tuple[MagicMock, AsyncM
     assert args["trace_id"] == "abc"
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_input_priority_over_context(mock_session_manager: Tuple[MagicMock, AsyncMock]) -> None:
     manager_mock, session_mock = mock_session_manager
     adapter = MCPAdapter(server_url="http://test")
@@ -60,7 +60,7 @@ async def test_input_priority_over_context(mock_session_manager: Tuple[MagicMock
     assert args["user_id"] == "override"
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_non_dict_response(mock_session_manager: Tuple[MagicMock, AsyncMock]) -> None:
     manager_mock, session_mock = mock_session_manager
     session_mock.call_tool.return_value = "string response"
@@ -72,7 +72,7 @@ async def test_non_dict_response(mock_session_manager: Tuple[MagicMock, AsyncMoc
     assert result == "string response"
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_none_response(mock_session_manager: Tuple[MagicMock, AsyncMock]) -> None:
     manager_mock, session_mock = mock_session_manager
     session_mock.call_tool.return_value = None
@@ -84,7 +84,7 @@ async def test_none_response(mock_session_manager: Tuple[MagicMock, AsyncMock]) 
     assert result is None
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_connection_timeout(mock_session_manager: Tuple[MagicMock, AsyncMock]) -> None:
     manager_mock, _ = mock_session_manager
     manager_mock.connect.side_effect = asyncio.TimeoutError("Connect timed out")
@@ -96,7 +96,7 @@ async def test_connection_timeout(mock_session_manager: Tuple[MagicMock, AsyncMo
         await adapter.execute_agent("agent", {}, {})
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_special_chars_agent_id(mock_session_manager: Tuple[MagicMock, AsyncMock]) -> None:
     manager_mock, session_mock = mock_session_manager
     adapter = MCPAdapter(server_url="http://test")
