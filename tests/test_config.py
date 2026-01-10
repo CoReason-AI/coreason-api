@@ -16,7 +16,7 @@ import pytest
 from coreason_api.config import Settings, get_settings
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def mock_vault_manager() -> Generator[MagicMock, None, None]:
     # Patch VaultAdapter because that's what config.py uses now
     with (
@@ -28,7 +28,7 @@ def mock_vault_manager() -> Generator[MagicMock, None, None]:
         yield instance
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def clean_env() -> Generator[None, None, None]:
     """Ensure environment is clean for settings tests"""
     old_env = os.environ.copy()
