@@ -67,7 +67,10 @@ ignore = []
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
-exclude = ["tests/"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_decorators = false
 
 [tool.pytest.ini_options]
 addopts = "--cov=src --cov-report=term-missing --cov-fail-under=100"
