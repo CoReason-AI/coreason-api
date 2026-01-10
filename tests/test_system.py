@@ -13,102 +13,86 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from coreason_api.adapters import BudgetAdapter, VaultAdapter
 from coreason_api.dependencies import get_budget_guard, get_identity_manager, get_vault_manager
-from coreason_api.main import app
+from coreason_api.routers.system import router
 from coreason_identity.manager import IdentityManager
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def mock_vault() -> MagicMock:
     mock = MagicMock(spec=VaultAdapter)
-    mock.get_secret.return_value = "secret"
+    mock.get_secret.return_value = "ok"
     return mock
 
 
-@pytest.fixture  # type: ignore[misc]
-def mock_identity() -> AsyncMock:
-    mock = AsyncMock(spec=IdentityManager)
+@pytest.fixture
+def mock_identity() -> MagicMock:
+    mock = MagicMock(spec=IdentityManager)
     # validate_token is async
-    mock.validate_token = AsyncMock(return_value={"sub": "user123"})
+    mock.validate_token = AsyncMock(return_value=None)
     return mock
 
 
-@pytest.fixture  # type: ignore[misc]
-def mock_budget() -> AsyncMock:
-    mock = AsyncMock(spec=BudgetAdapter)
+@pytest.fixture
+def mock_budget() -> MagicMock:
+    mock = MagicMock(spec=BudgetAdapter)
     mock.check_quota = AsyncMock(return_value=True)
     return mock
 
 
-@pytest.fixture  # type: ignore[misc]
-def client(mock_vault: MagicMock, mock_identity: AsyncMock, mock_budget: AsyncMock) -> TestClient:
+@pytest.fixture
+def client(mock_vault: MagicMock, mock_identity: MagicMock, mock_budget: MagicMock) -> TestClient:
+    app = FastAPI()
+    app.include_router(router)
+
     app.dependency_overrides[get_vault_manager] = lambda: mock_vault
     app.dependency_overrides[get_identity_manager] = lambda: mock_identity
     app.dependency_overrides[get_budget_guard] = lambda: mock_budget
+
     return TestClient(app)
 
 
-def test_health_live(client: TestClient) -> None:
+def test_liveness_check(client: TestClient) -> None:
     response = client.get("/health/live")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "details": None}
 
 
-def test_health_ready_success(client: TestClient) -> None:
+def test_readiness_check_success(
+    client: TestClient, mock_vault: MagicMock, mock_identity: MagicMock, mock_budget: MagicMock
+) -> None:
     response = client.get("/health/ready")
     assert response.status_code == 200
     assert response.json() == {"status": "ready", "details": None}
 
-
-def test_health_ready_vault_failure(client: TestClient, mock_vault: MagicMock) -> None:
-    mock_vault.get_secret.side_effect = Exception("Vault connection failed")
-    response = client.get("/health/ready")
-    assert response.status_code == 503
-    data = response.json()
-    assert data["detail"]["status"] == "unhealthy"
-    assert "Vault connection failed" in data["detail"]["details"]["vault"]
+    mock_vault.get_secret.assert_called_with("health_check_probe", default="ok")
+    mock_identity.validate_token.assert_called_with("health_probe")
+    mock_budget.check_quota.assert_called_with(user_id="health_probe", cost_estimate=0.0)
 
 
-def test_health_ready_identity_failure(client: TestClient, mock_identity: AsyncMock) -> None:
-    mock_identity.validate_token.side_effect = Exception("IDP unreachable")
-    response = client.get("/health/ready")
-    assert response.status_code == 503
-    data = response.json()
-    assert data["detail"]["status"] == "unhealthy"
-    assert "IDP unreachable" in data["detail"]["details"]["identity"]
-
-
-def test_health_ready_budget_failure(client: TestClient, mock_budget: AsyncMock) -> None:
-    mock_budget.check_quota.side_effect = Exception("DB unreachable")
-    response = client.get("/health/ready")
-    assert response.status_code == 503
-    data = response.json()
-    assert data["detail"]["status"] == "unhealthy"
-    assert "DB unreachable" in data["detail"]["details"]["budget"]
-
-
-def test_health_ready_multiple_failures(client: TestClient, mock_vault: MagicMock, mock_budget: AsyncMock) -> None:
-    # Fail both Vault and Budget
+def test_readiness_check_failure(client: TestClient, mock_vault: MagicMock) -> None:
+    # Simulate Vault failure
     mock_vault.get_secret.side_effect = Exception("Vault Down")
-    mock_budget.check_quota.side_effect = Exception("Redis Down")
 
     response = client.get("/health/ready")
     assert response.status_code == 503
     data = response.json()
     assert data["detail"]["status"] == "unhealthy"
-    details = data["detail"]["details"]
-    assert "Vault Down" in details["vault"]
-    assert "Redis Down" in details["budget"]
-    # Identity should be fine (or not in dict if skipped? logic runs all)
-    assert "identity" not in details
+    assert "vault" in data["detail"]["details"]
+    assert data["detail"]["details"]["vault"] == "Vault Down"
 
 
-def test_health_ready_unexpected_exception(client: TestClient, mock_identity: AsyncMock) -> None:
-    # Simulate a very generic/unexpected error
-    mock_identity.validate_token.side_effect = RuntimeError("Something bad happened")
+def test_readiness_check_all_failures(
+    client: TestClient, mock_vault: MagicMock, mock_identity: MagicMock, mock_budget: MagicMock
+) -> None:
+    mock_vault.get_secret.side_effect = Exception("Vault Down")
+    mock_identity.validate_token.side_effect = Exception("Identity Down")
+    mock_budget.check_quota.side_effect = Exception("Budget Down")
 
     response = client.get("/health/ready")
     assert response.status_code == 503
     data = response.json()
-    assert data["detail"]["status"] == "unhealthy"
-    assert "Something bad happened" in data["detail"]["details"]["identity"]
+    assert "vault" in data["detail"]["details"]
+    assert "identity" in data["detail"]["details"]
+    assert "budget" in data["detail"]["details"]

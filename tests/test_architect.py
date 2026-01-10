@@ -1,171 +1,190 @@
-from typing import Generator
-from unittest.mock import AsyncMock, MagicMock
+# Copyright (c) 2025 CoReason, Inc.
+#
+# This software is proprietary and dual-licensed.
+# Licensed under the Prosperity Public License 3.0 (the "License").
+# A copy of the license is available at https://prosperitylicense.com/versions/3.0.0
+# For details, see the LICENSE file.
+# Commercial use beyond a 30-day trial requires a separate license.
+#
+# Source Code: https://github.com/CoReason-AI/coreason_api
+
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from coreason_api.dependencies import get_gatekeeper, get_manifest_validator, get_session_manager, get_trust_anchor
-from coreason_api.main import app
+from coreason_api.adapters import AnchorAdapter, MCPAdapter
+from coreason_api.dependencies import (
+    get_gatekeeper,
+    get_manifest_validator,
+    get_session_manager,
+    get_trust_anchor,
+)
+from coreason_api.routers.architect import router
+
+# We don't import AgentDefinition here to avoid issues if we can't inspect it easily in tests
+# from coreason_manifest.models import AgentDefinition
+from coreason_manifest.validator import SchemaValidator as ManifestValidator
+from coreason_veritas.gatekeeper import SignatureValidator as Gatekeeper
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
-@pytest.fixture  # type: ignore[misc]
-def client() -> TestClient:
-    return TestClient(app)
-
-
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def mock_gatekeeper() -> MagicMock:
-    mock = MagicMock()
+    mock = MagicMock(spec=Gatekeeper)
     mock.get_policy_instruction_for_llm.return_value = ["Policy 1", "Policy 2"]
     return mock
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def mock_mcp() -> MagicMock:
-    mock = MagicMock()
-    mock.execute_agent = AsyncMock(return_value={"result": "success"})
+    mock = MagicMock(spec=MCPAdapter)
+    mock.execute_agent = AsyncMock(return_value={"output": "simulated"})
     return mock
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def mock_validator() -> MagicMock:
-    mock = MagicMock()
-    mock.validate.return_value = True
+    mock = MagicMock(spec=ManifestValidator)
+    mock.validate.return_value = None
     return mock
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def mock_anchor() -> MagicMock:
-    mock = MagicMock()
-    mock.seal.return_value = "hex_signature"
+    mock = MagicMock(spec=AnchorAdapter)
+    mock.seal.return_value = "signature_xyz"
     return mock
 
 
-@pytest.fixture  # type: ignore[misc]
-def overrides(
-    mock_gatekeeper: MagicMock, mock_mcp: MagicMock, mock_validator: MagicMock, mock_anchor: MagicMock
-) -> Generator[None, None, None]:
+@pytest.fixture
+def client(
+    mock_gatekeeper: MagicMock,
+    mock_mcp: MagicMock,
+    mock_validator: MagicMock,
+    mock_anchor: MagicMock,
+) -> TestClient:
+    app = FastAPI()
+    app.include_router(router)
+
     app.dependency_overrides[get_gatekeeper] = lambda: mock_gatekeeper
     app.dependency_overrides[get_session_manager] = lambda: mock_mcp
     app.dependency_overrides[get_manifest_validator] = lambda: mock_validator
     app.dependency_overrides[get_trust_anchor] = lambda: mock_anchor
-    yield
-    app.dependency_overrides = {}
+
+    return TestClient(app)
 
 
-def test_generate_vibe(client: TestClient, overrides: None) -> None:
-    response = client.post("/v1/architect/generate", json={"prompt": "Create a hello world agent"})
+def test_generate_vibe(client: TestClient, mock_gatekeeper: MagicMock) -> None:
+    response = client.post("/v1/architect/generate", json={"prompt": "Write code"})
     assert response.status_code == 200
     data = response.json()
-    assert "enriched_prompt" in data
     assert "Policy 1" in data["enriched_prompt"]
     assert data["policies"] == ["Policy 1", "Policy 2"]
+    mock_gatekeeper.get_policy_instruction_for_llm.assert_called_once()
 
 
 def test_generate_vibe_failure(client: TestClient, mock_gatekeeper: MagicMock) -> None:
-    mock_gatekeeper.get_policy_instruction_for_llm.side_effect = Exception("Gatekeeper Error")
-    app.dependency_overrides[get_gatekeeper] = lambda: mock_gatekeeper
-
-    response = client.post("/v1/architect/generate", json={"prompt": "Create a hello world agent"})
+    mock_gatekeeper.get_policy_instruction_for_llm.side_effect = Exception("Policy Error")
+    response = client.post("/v1/architect/generate", json={"prompt": "Write code"})
     assert response.status_code == 500
-    assert "Failed to generate vibe" in response.json()["detail"]
-    app.dependency_overrides = {}
+    assert response.json()["detail"] == "Failed to generate vibe"
 
 
-def test_simulate_agent(client: TestClient, overrides: None, mock_mcp: MagicMock) -> None:
-    agent_def = {"name": "test-agent"}
-    input_data = {"key": "value"}
-
-    response = client.post("/v1/architect/simulate", json={"agent_definition": agent_def, "input_data": input_data})
+def test_simulate_agent(client: TestClient, mock_mcp: MagicMock) -> None:
+    response = client.post(
+        "/v1/architect/simulate",
+        json={"agent_definition": {"name": "test"}, "input_data": {"x": 1}},
+    )
     assert response.status_code == 200
-    assert response.json()["status"] == "success"
+    assert response.json()["result"] == {"output": "simulated"}
 
-    # Verify execute_agent called with correct context
-    args, kwargs = mock_mcp.execute_agent.call_args
-    assert kwargs["agent_id"] == "draft"
-    assert kwargs["context"]["agent_definition"] == agent_def
-    assert kwargs["context"]["mode"] == "simulation"
+    mock_mcp.execute_agent.assert_called_with(
+        agent_id="draft",
+        input_data={"x": 1},
+        context={"agent_definition": {"name": "test"}, "mode": "simulation"},
+    )
 
 
 def test_simulate_agent_failure(client: TestClient, mock_mcp: MagicMock) -> None:
-    mock_mcp.execute_agent = AsyncMock(side_effect=Exception("Simulation Error"))
-    app.dependency_overrides[get_session_manager] = lambda: mock_mcp
-
-    response = client.post("/v1/architect/simulate", json={"agent_definition": {}, "input_data": {}})
+    mock_mcp.execute_agent.side_effect = Exception("Sim Error")
+    response = client.post(
+        "/v1/architect/simulate",
+        json={"agent_definition": {"name": "test"}, "input_data": {"x": 1}},
+    )
     assert response.status_code == 500
     assert "Simulation failed" in response.json()["detail"]
-    app.dependency_overrides = {}
 
 
-def test_publish_agent(client: TestClient, overrides: None, mock_validator: MagicMock, mock_anchor: MagicMock) -> None:
-    # Mock ManifestLoader to return object with matching name
-    with pytest.MonkeyPatch.context() as m:
-        mock_loader = MagicMock()
-        mock_def = MagicMock()
-        mock_def.metadata.name = "my-agent"
-        mock_loader.load_from_dict.return_value = mock_def
-        m.setattr("coreason_manifest.loader.ManifestLoader", mock_loader)
+def test_publish_agent_success(client: TestClient, mock_validator: MagicMock, mock_anchor: MagicMock) -> None:
+    agent_def = {"metadata": {"name": "my-agent"}, "spec": {}}
 
-        agent_def = {"metadata": {"name": "my-agent"}}
-        response = client.post("/v1/architect/publish", json={"agent_definition": agent_def, "slug": "my-agent"})
+    # Mock ManifestLoader in the original module
+    with patch("coreason_manifest.loader.ManifestLoader.load_from_dict") as mock_load:
+        # We use a plain Mock or MagicMock and ensure it doesn't try to spec against a class we can't fully inspect
+        mock_agent = MagicMock()
+        mock_agent.metadata.name = "my-agent"
+        mock_load.return_value = mock_agent
+
+        response = client.post(
+            "/v1/architect/publish",
+            json={"agent_definition": agent_def, "slug": "my-agent"},
+        )
+
         assert response.status_code == 200
-        data = response.json()
-        assert data["signature"] == "hex_signature"
-        assert data["status"] == "published"
+        assert response.json()["signature"] == "signature_xyz"
+        assert response.json()["status"] == "published"
 
-        mock_validator.validate.assert_called_once()
-        mock_anchor.seal.assert_called_once()
+        mock_validator.validate.assert_called_with(agent_def)
+        mock_anchor.seal.assert_called_with(agent_def)
 
 
-def test_publish_agent_isomorphism_failure(client: TestClient, overrides: None) -> None:
-    # Mock ManifestLoader
-    with pytest.MonkeyPatch.context() as m:
-        mock_loader = MagicMock()
-        mock_def = MagicMock()
-        mock_def.metadata.name = "other-agent"
-        mock_loader.load_from_dict.return_value = mock_def
-        m.setattr("coreason_manifest.loader.ManifestLoader", mock_loader)
+def test_publish_agent_validation_error(client: TestClient, mock_validator: MagicMock) -> None:
+    mock_validator.validate.side_effect = Exception("Invalid Schema")
+    response = client.post(
+        "/v1/architect/publish",
+        json={"agent_definition": {}, "slug": "slug"},
+    )
+    assert response.status_code == 400
+    assert "Invalid agent definition" in response.json()["detail"]
 
-        agent_def = {"metadata": {"name": "other-agent"}}
-        response = client.post("/v1/architect/publish", json={"agent_definition": agent_def, "slug": "my-agent"})
+
+def test_publish_agent_isomorphism_error(client: TestClient) -> None:
+    with patch("coreason_manifest.loader.ManifestLoader.load_from_dict") as mock_load:
+        mock_agent = MagicMock()
+        mock_agent.metadata.name = "real-name"
+        mock_load.return_value = mock_agent
+
+        response = client.post(
+            "/v1/architect/publish",
+            json={"agent_definition": {}, "slug": "wrong-slug"},
+        )
         assert response.status_code == 400
         assert "Isomorphism check failed" in response.json()["detail"]
 
 
-def test_publish_agent_schema_failure(client: TestClient, mock_validator: MagicMock) -> None:
-    mock_validator.validate.side_effect = Exception("Schema Error")
-    app.dependency_overrides[get_manifest_validator] = lambda: mock_validator
+def test_publish_agent_parse_error(client: TestClient) -> None:
+    with patch("coreason_manifest.loader.ManifestLoader.load_from_dict") as mock_load:
+        mock_load.side_effect = Exception("Parse Error")
 
-    response = client.post("/v1/architect/publish", json={"agent_definition": {}, "slug": "my-agent"})
-    assert response.status_code == 400
-    assert "Invalid agent definition" in response.json()["detail"]
-    app.dependency_overrides = {}
-
-
-def test_publish_agent_parse_failure(client: TestClient, overrides: None) -> None:
-    # Mock ManifestLoader to raise Exception
-    with pytest.MonkeyPatch.context() as m:
-        mock_loader = MagicMock()
-        mock_loader.load_from_dict.side_effect = Exception("Parsing Error")
-        m.setattr("coreason_manifest.loader.ManifestLoader", mock_loader)
-
-        agent_def = {"metadata": {"name": "my-agent"}}
-        response = client.post("/v1/architect/publish", json={"agent_definition": agent_def, "slug": "my-agent"})
+        response = client.post(
+            "/v1/architect/publish",
+            json={"agent_definition": {}, "slug": "slug"},
+        )
         assert response.status_code == 400
         assert "Failed to parse agent definition" in response.json()["detail"]
 
 
-def test_publish_agent_seal_failure(client: TestClient, overrides: None, mock_anchor: MagicMock) -> None:
-    # Mock ManifestLoader to return valid object
-    with pytest.MonkeyPatch.context() as m:
-        mock_loader = MagicMock()
-        mock_def = MagicMock()
-        mock_def.metadata.name = "my-agent"
-        mock_loader.load_from_dict.return_value = mock_def
-        m.setattr("coreason_manifest.loader.ManifestLoader", mock_loader)
+def test_publish_agent_sealing_error(client: TestClient, mock_anchor: MagicMock) -> None:
+    with patch("coreason_manifest.loader.ManifestLoader.load_from_dict") as mock_load:
+        mock_agent = MagicMock()
+        mock_agent.metadata.name = "slug"
+        mock_load.return_value = mock_agent
 
-        mock_anchor.seal.side_effect = Exception("Sealing Error")
+        mock_anchor.seal.side_effect = Exception("Seal Error")
 
-        agent_def = {"metadata": {"name": "my-agent"}}
-        response = client.post("/v1/architect/publish", json={"agent_definition": agent_def, "slug": "my-agent"})
+        response = client.post(
+            "/v1/architect/publish",
+            json={"agent_definition": {}, "slug": "slug"},
+        )
         assert response.status_code == 500
         assert "Failed to seal artifact" in response.json()["detail"]
