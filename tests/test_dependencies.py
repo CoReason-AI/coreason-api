@@ -25,7 +25,7 @@ from coreason_api.dependencies import (
 )
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def mock_settings() -> Settings:
     return Settings(
         COREASON_AUTH_DOMAIN="auth.test",
@@ -130,7 +130,7 @@ def test_vault_adapter() -> None:
         MockManager.return_value.secrets.get_secret.assert_called_once_with("key", default=None)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio  # type: ignore[misc]
 async def test_budget_adapter() -> None:
     with (
         patch("coreason_api.adapters.CoreasonBudgetConfig") as _,
@@ -161,7 +161,7 @@ def test_anchor_adapter() -> None:
         MockInterceptor.return_value.seal.assert_called_once_with({"data": 1})
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio  # type: ignore[misc]
 async def test_mcp_adapter() -> None:
     with patch("coreason_api.adapters.SessionManager") as MockManager:
         adapter = MCPAdapter()

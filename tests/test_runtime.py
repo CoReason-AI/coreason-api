@@ -25,7 +25,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def mock_identity() -> MagicMock:
     mock = MagicMock(spec=IdentityManager)
     user_context = MagicMock()
@@ -34,7 +34,7 @@ def mock_identity() -> MagicMock:
     return mock
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def mock_budget() -> MagicMock:
     mock = MagicMock(spec=BudgetAdapter)
     mock.check_quota = AsyncMock(return_value=True)
@@ -42,21 +42,21 @@ def mock_budget() -> MagicMock:
     return mock
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def mock_auditor() -> MagicMock:
     mock = MagicMock(spec=Auditor)
     mock.log_event = AsyncMock()
     return mock
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def mock_mcp() -> MagicMock:
     mock = MagicMock(spec=MCPAdapter)
     mock.execute_agent = AsyncMock(return_value={"output": "success"})
     return mock
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def client(
     mock_identity: MagicMock,
     mock_budget: MagicMock,

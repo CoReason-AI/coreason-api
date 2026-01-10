@@ -84,7 +84,7 @@ class AnchorAdapter:
         self._interceptor = DeterminismInterceptor()
 
     def seal(self, artifact: Dict[str, Any]) -> str:
-        return self._interceptor.seal(artifact)
+        return str(self._interceptor.seal(artifact))
 
 
 class MCPAdapter:

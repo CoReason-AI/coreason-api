@@ -19,14 +19,14 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def mock_vault() -> MagicMock:
     mock = MagicMock(spec=VaultAdapter)
     mock.get_secret.return_value = "ok"
     return mock
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def mock_identity() -> MagicMock:
     mock = MagicMock(spec=IdentityManager)
     # validate_token is async
@@ -34,14 +34,14 @@ def mock_identity() -> MagicMock:
     return mock
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def mock_budget() -> MagicMock:
     mock = MagicMock(spec=BudgetAdapter)
     mock.check_quota = AsyncMock(return_value=True)
     return mock
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def client(mock_vault: MagicMock, mock_identity: MagicMock, mock_budget: MagicMock) -> TestClient:
     app = FastAPI()
     app.include_router(router)

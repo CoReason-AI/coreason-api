@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 from starlette.middleware import Middleware
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def app() -> FastAPI:
     app = FastAPI(middleware=[Middleware(TraceIDMiddleware)])
 
@@ -29,7 +29,7 @@ def app() -> FastAPI:
     return app
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def client(app: FastAPI) -> TestClient:
     return TestClient(app)
 
