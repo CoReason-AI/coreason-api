@@ -68,6 +68,7 @@ def mock_policy() -> MagicMock:
     mock.verify_access.return_value = True
     return mock
 
+
 @pytest.fixture
 def client(
     mock_identity: MagicMock,

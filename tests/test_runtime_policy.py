@@ -8,6 +8,7 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_api
 
+from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock
 
 from coreason_api.dependencies import (
@@ -163,12 +164,10 @@ class TestRuntimePolicy:
         # We need to verify what arguments were passed.
         # UserContext.model_dump() is called in runtime.py.
         # So verify_access receives the dict.
-        user_ctx_dict = {
+        user_ctx_dict: Dict[str, Any] = {
             "sub": "user_123",
             "email": "test@example.com",
             "project_context": None,
             "permissions": [],
         }
-        mock_policy_guard.verify_access.assert_called_once_with(
-            agent_id="agent_x", user_context=user_ctx_dict
-        )
+        mock_policy_guard.verify_access.assert_called_once_with(agent_id="agent_x", user_context=user_ctx_dict)
