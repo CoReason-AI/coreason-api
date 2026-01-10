@@ -153,9 +153,7 @@ def test_mcp_adapter_initialization_failure() -> None:
 async def test_mcp_adapter_empty_inputs() -> None:
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
         mock_sm_instance = mock_sm_cls.return_value
-        mock_sm_instance.execute_agent = AsyncMock(
-            return_value={"status": "error", "message": "empty inputs"}
-        )
+        mock_sm_instance.execute_agent = AsyncMock(return_value={"status": "error", "message": "empty inputs"})
 
         adapter = MCPAdapter()
         # Test empty inputs
@@ -188,10 +186,7 @@ async def test_mcp_adapter_concurrent_calls() -> None:
         adapter = MCPAdapter()
 
         # Simulate 5 concurrent calls
-        tasks = [
-            adapter.execute_agent(f"agent-{i}", {}, {})
-            for i in range(5)
-        ]
+        tasks = [adapter.execute_agent(f"agent-{i}", {}, {}) for i in range(5)]
         results = await asyncio.gather(*tasks)
 
         assert len(results) == 5
