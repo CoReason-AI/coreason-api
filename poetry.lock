@@ -770,14 +770,14 @@ tenacity = ">=9.1.2,<10.0.0"
 
 [[package]]
 name = "coreason-veritas"
-version = "0.7.0"
+version = "0.8.0"
 description = "coreason_veritas is the non-negotiable governance layer of the CoReason platform (Prosperity Public License 3.0.0)"
 optional = false
 python-versions = "<3.15,>=3.12"
 groups = ["main"]
 files = [
-    {file = "coreason_veritas-0.7.0-py3-none-any.whl", hash = "sha256:2fe74c9f7918bfbeff93a56013b10f7c3830c7ccaf29f83148ad9d6f9ad27d9b"},
-    {file = "coreason_veritas-0.7.0.tar.gz", hash = "sha256:e1ae4c849052657afb190b4715e06f24c6001556ff3da5a3a3f7b4cf5593b718"},
+    {file = "coreason_veritas-0.8.0-py3-none-any.whl", hash = "sha256:fe0447c993224090d4c45f32d4ba016894897cb5deac445dab2be3999f9190d7"},
+    {file = "coreason_veritas-0.8.0.tar.gz", hash = "sha256:f620b98e76f163fe26be22df1f0fc4f01df606285d3c69f43297fd9201cf4ed9"},
 ]
 
 [package.dependencies]
@@ -5218,4 +5218,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12, <3.15"
-content-hash = "26dbd5c5a36c0e4145f958a8fe53b97eed89cae0c18912eb7a5408ffb5ba8ba7"
+content-hash = "6ae1a201f4bbda29efaa806b5b16e3d296746467378a9166ad3c957796b93cc1"
