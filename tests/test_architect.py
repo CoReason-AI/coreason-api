@@ -188,3 +188,28 @@ def test_publish_agent_sealing_error(client: TestClient, mock_anchor: MagicMock)
         )
         assert response.status_code == 500
         assert "Failed to seal artifact" in response.json()["detail"]
+
+
+# --- Edge Cases ---
+
+
+def test_generate_vibe_empty_prompt(client: TestClient, mock_gatekeeper: MagicMock) -> None:
+    response = client.post("/v1/architect/generate", json={"prompt": ""})
+    assert response.status_code == 200
+    data = response.json()
+    assert "[GOVERNANCE POLICIES]" in data["enriched_prompt"]
+
+
+def test_publish_agent_slug_case_mismatch(client: TestClient) -> None:
+    # Verify strict equality (Case Sensitive)
+    with patch("coreason_manifest.loader.ManifestLoader.load_from_dict") as mock_load:
+        mock_agent = MagicMock()
+        mock_agent.metadata.name = "MyAgent"
+        mock_load.return_value = mock_agent
+
+        response = client.post(
+            "/v1/architect/publish",
+            json={"agent_definition": {}, "slug": "myagent"},
+        )
+        assert response.status_code == 400
+        assert "Isomorphism check failed" in response.json()["detail"]

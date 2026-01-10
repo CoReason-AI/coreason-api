@@ -186,3 +186,36 @@ def test_run_agent_audit_end_failure(client: TestClient, mock_auditor: MagicMock
     assert response.status_code == 200
     assert response.json()["result"] == {"output": "success"}
     # Should log error but not fail request
+
+
+# --- Edge Case Tests ---
+
+
+def test_run_agent_zero_cost(client: TestClient, mock_budget: MagicMock) -> None:
+    headers = {"Authorization": "Bearer token"}
+    payload = {"input_data": {}, "cost_estimate": 0.0}
+    response = client.post("/v1/run/agent-123", json=payload, headers=headers)
+    assert response.status_code == 200
+    mock_budget.check_quota.assert_called_with(user_id="test-user", cost_estimate=0.0)
+
+
+def test_run_agent_large_payload(client: TestClient, mock_mcp: MagicMock) -> None:
+    headers = {"Authorization": "Bearer token"}
+    large_input = {"data": "x" * 10000}
+    payload = {"input_data": large_input}
+    response = client.post("/v1/run/agent-123", json=payload, headers=headers)
+    assert response.status_code == 200
+    mock_mcp.execute_agent.assert_called_with(
+        agent_id="agent-123", input_data=large_input, context={"user_id": "test-user"}
+    )
+
+
+def test_run_agent_context_handling(client: TestClient, mock_mcp: MagicMock) -> None:
+    headers = {"Authorization": "Bearer token"}
+    session_context = {"prev_state": "abc"}
+    payload = {"input_data": {}, "session_context": session_context}
+    response = client.post("/v1/run/agent-123", json=payload, headers=headers)
+    assert response.status_code == 200
+    mock_mcp.execute_agent.assert_called_with(
+        agent_id="agent-123", input_data={}, context={"prev_state": "abc", "user_id": "test-user"}
+    )

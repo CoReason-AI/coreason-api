@@ -67,3 +67,15 @@ def test_logger_context(client: TestClient) -> None:
         mock_logger.contextualize.assert_called_once()
         args, kwargs = mock_logger.contextualize.call_args
         assert "trace_id" in kwargs
+
+
+# --- Edge Cases ---
+
+
+def test_trace_id_custom_format(client: TestClient) -> None:
+    # Verify that non-standard Trace IDs are accepted and preserved
+    # This ensures flexibility for integrating with external systems that might not use standard UUIDs
+    custom_id = "request-12345"
+    response = client.get("/test", headers={"X-Trace-ID": custom_id})
+    assert response.status_code == 200
+    assert response.headers["X-Trace-ID"] == custom_id
