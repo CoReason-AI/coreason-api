@@ -260,7 +260,4 @@ class TestRuntimePolicy:
             "project_context": project_ctx,
             "permissions": permissions,
         }
-        mock_policy_guard.verify_access.assert_called_once_with(
-            agent_id="agent_y",
-            user_context=expected_ctx
-        )
+        mock_policy_guard.verify_access.assert_called_once_with(agent_id="agent_y", user_context=expected_ctx)
