@@ -10,6 +10,7 @@
 
 from typing import Any, Dict, List
 
+from coreason_manifest.loader import ManifestLoader
 from coreason_manifest.models import AgentDefinition
 from coreason_manifest.validator import SchemaValidator as ManifestValidator
 from coreason_veritas.gatekeeper import SignatureValidator as Gatekeeper
@@ -154,7 +155,6 @@ async def publish_agent(
         # We can use AgentDefinition model from coreason_manifest.models if available
         # OR just check the dict. Using model is safer.
         # ManifestLoader.load_from_dict returns AgentDefinition
-        from coreason_manifest.loader import ManifestLoader
 
         agent_def: AgentDefinition = ManifestLoader.load_from_dict(request.agent_definition)
 
