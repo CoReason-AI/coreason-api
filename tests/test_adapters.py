@@ -60,7 +60,7 @@ def test_vault_adapter_error() -> None:
             adapter.get_secret("MY_KEY")
 
 
-@pytest.mark.anyio  # type: ignore[misc]
+@pytest.mark.anyio
 async def test_budget_adapter() -> None:
     with (
         patch("coreason_api.adapters.BudgetGuard") as mock_guard_cls,
@@ -82,7 +82,7 @@ async def test_budget_adapter() -> None:
         mock_guard.charge.assert_called_with(user_id="user1", cost=10.0)
 
 
-@pytest.mark.anyio  # type: ignore[misc]
+@pytest.mark.anyio
 async def test_budget_adapter_quota_exceeded() -> None:
     with (
         patch("coreason_api.adapters.BudgetGuard") as mock_guard_cls,
@@ -96,7 +96,7 @@ async def test_budget_adapter_quota_exceeded() -> None:
         assert not await adapter.check_quota("user1", 1000.0)
 
 
-@pytest.mark.anyio  # type: ignore[misc]
+@pytest.mark.anyio
 async def test_budget_adapter_charge_failure() -> None:
     with (
         patch("coreason_api.adapters.BudgetGuard") as mock_guard_cls,
@@ -123,7 +123,7 @@ def test_anchor_adapter() -> None:
         mock_interceptor.seal.assert_called_with({"key": "value"})
 
 
-@pytest.mark.anyio  # type: ignore[misc]
+@pytest.mark.anyio
 async def test_mcp_adapter() -> None:
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
         mock_sm_instance = mock_sm_cls.return_value
@@ -162,7 +162,7 @@ def test_mcp_adapter_initialization_failure() -> None:
             MCPAdapter(server_url="http://mock")
 
 
-@pytest.mark.anyio  # type: ignore[misc]
+@pytest.mark.anyio
 async def test_mcp_adapter_empty_inputs() -> None:
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
         mock_sm_instance = mock_sm_cls.return_value
@@ -182,7 +182,7 @@ async def test_mcp_adapter_empty_inputs() -> None:
         assert result["status"] == "error"
 
 
-@pytest.mark.anyio  # type: ignore[misc]
+@pytest.mark.anyio
 async def test_mcp_adapter_propagates_exceptions() -> None:
     """Test that the adapter correctly propagates exceptions from SessionManager."""
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
@@ -197,7 +197,7 @@ async def test_mcp_adapter_propagates_exceptions() -> None:
             await adapter.execute_agent("invalid-agent", {}, {})
 
 
-@pytest.mark.anyio  # type: ignore[misc]
+@pytest.mark.anyio
 async def test_mcp_adapter_concurrent_calls() -> None:
     """Test that the adapter handles concurrent execution requests properly."""
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
@@ -230,7 +230,7 @@ async def test_mcp_adapter_concurrent_calls() -> None:
         assert mock_sm_instance.connect.call_count == 5
 
 
-@pytest.mark.anyio  # type: ignore[misc]
+@pytest.mark.anyio
 async def test_mcp_adapter_complex_nested_input() -> None:
     """Test that complex nested data structures are passed through correctly."""
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
@@ -258,7 +258,7 @@ async def test_mcp_adapter_complex_nested_input() -> None:
         session_mock.call_tool.assert_awaited_once_with(name="agent-complex", arguments=expected_arguments)
 
 
-@pytest.mark.anyio  # type: ignore[misc]
+@pytest.mark.anyio
 async def test_mcp_adapter_huge_payload() -> None:
     """Test that the adapter handles large payloads without issues."""
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
@@ -285,7 +285,7 @@ async def test_mcp_adapter_huge_payload() -> None:
         assert call_args[1]["arguments"]["data"] == huge_string
 
 
-@pytest.mark.anyio  # type: ignore[misc]
+@pytest.mark.anyio
 async def test_mcp_adapter_sequential_calls() -> None:
     """Test that the adapter instance can be reused for sequential calls."""
     with patch("coreason_api.adapters.SessionManager") as mock_sm_cls:
