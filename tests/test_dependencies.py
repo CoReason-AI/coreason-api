@@ -8,8 +8,11 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_api
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+from coreason_api.adapters import AnchorAdapter, BudgetAdapter, MCPAdapter, VaultAdapter
+from coreason_api.config import Settings
 from coreason_api.dependencies import (
     get_auditor,
     get_budget_guard,
@@ -17,75 +20,153 @@ from coreason_api.dependencies import (
     get_identity_manager,
     get_manifest_validator,
     get_session_manager,
+    get_trust_anchor,
     get_vault_manager,
 )
 
 
+@pytest.fixture  # type: ignore[misc]
+def mock_settings() -> Settings:
+    return Settings(
+        COREASON_AUTH_DOMAIN="auth.test",
+        COREASON_AUTH_AUDIENCE="aud.test",
+        COREASON_AUTH_CLIENT_ID="client.test",
+        REDIS_URL="redis://test",
+        SRB_PUBLIC_KEY="public_key",
+    )
+
+
 def test_get_vault_manager() -> None:
-    # Patch VaultAdapter instead of VaultManager
     with (
-        patch("coreason_api.dependencies.VaultAdapter") as MockVM,
-        patch("coreason_api.dependencies.CoreasonVaultConfig"),
+        patch("coreason_api.dependencies.CoreasonVaultConfig") as MockConfig,
+        patch("coreason_api.dependencies.VaultAdapter") as MockAdapter,
     ):
-        vm = get_vault_manager()
-        assert vm is MockVM.return_value
-        MockVM.assert_called_once()
+        get_vault_manager.cache_clear()
+        manager = get_vault_manager()
+        assert manager is MockAdapter.return_value
+        MockConfig.assert_called_once()
+        MockAdapter.assert_called_once_with(config=MockConfig.return_value)
+
+        # Test caching
+        manager2 = get_vault_manager()
+        assert manager2 is manager
 
 
-def test_get_identity_manager() -> None:
-    mock_settings = MagicMock()
-    mock_settings.COREASON_AUTH_DOMAIN = "d"
-    mock_settings.COREASON_AUTH_AUDIENCE = "a"
-    mock_settings.COREASON_AUTH_CLIENT_ID = "c"
-
-    with patch("coreason_api.dependencies.IdentityManager") as MockIM:
-        im = get_identity_manager(mock_settings)
-        assert im is MockIM.return_value
-        # Check config passed
-        args, kwargs = MockIM.call_args
-        config = kwargs["config"]
-        assert config.domain == "d"
-
-
-def test_get_budget_guard() -> None:
-    mock_settings = MagicMock()
-    mock_settings.REDIS_URL = "redis://localhost:6379/0"
-
-    # Patch BudgetAdapter instead of BudgetGuard
+def test_get_identity_manager(mock_settings: Settings) -> None:
     with (
-        patch("coreason_api.dependencies.BudgetAdapter") as MockBG,
+        patch("coreason_api.dependencies.CoreasonIdentityConfig") as MockConfig,
+        patch("coreason_api.dependencies.IdentityManager") as MockManager,
     ):
-        bg = get_budget_guard(mock_settings)
-        assert bg is MockBG.return_value
-        # Check call args if needed
-        MockBG.assert_called_with(db_url="redis://localhost:6379/0")
+        get_identity_manager.cache_clear()
+        manager = get_identity_manager(mock_settings)
+        assert manager is MockManager.return_value
+        MockConfig.assert_called_once_with(
+            domain="auth.test",
+            audience="aud.test",
+            client_id="client.test",
+        )
+        MockManager.assert_called_once_with(config=MockConfig.return_value)
+
+
+def test_get_budget_guard(mock_settings: Settings) -> None:
+    with patch("coreason_api.dependencies.BudgetAdapter") as MockAdapter:
+        get_budget_guard.cache_clear()
+        guard = get_budget_guard(mock_settings)
+        assert guard is MockAdapter.return_value
+        MockAdapter.assert_called_once_with(db_url="redis://test")
 
 
 def test_get_auditor() -> None:
     with patch("coreason_api.dependencies.Auditor") as MockAuditor:
+        get_auditor.cache_clear()
         auditor = get_auditor()
         assert auditor is MockAuditor.return_value
-        MockAuditor.assert_called_with(service_name="coreason-api")
+        MockAuditor.assert_called_once_with(service_name="coreason-api")
 
 
-def test_get_gatekeeper() -> None:
-    mock_settings = MagicMock()
-    mock_settings.SRB_PUBLIC_KEY = "dummy-pem"
-
-    with patch("coreason_api.dependencies.Gatekeeper") as MockGK:
-        gk = get_gatekeeper(mock_settings)
-        assert gk is MockGK.return_value
-        MockGK.assert_called_with(public_key_store="dummy-pem")
+def test_get_gatekeeper(mock_settings: Settings) -> None:
+    with patch("coreason_api.dependencies.Gatekeeper") as MockGatekeeper:
+        get_gatekeeper.cache_clear()
+        gatekeeper = get_gatekeeper(mock_settings)
+        assert gatekeeper is MockGatekeeper.return_value
+        MockGatekeeper.assert_called_once_with(public_key_store="public_key")
 
 
 def test_get_session_manager() -> None:
-    # Now returns MCPAdapter
     with patch("coreason_api.dependencies.MCPAdapter") as MockAdapter:
-        sm = get_session_manager()
-        assert sm is MockAdapter.return_value
+        get_session_manager.cache_clear()
+        manager = get_session_manager()
+        assert manager is MockAdapter.return_value
+        MockAdapter.assert_called_once()
 
 
 def test_get_manifest_validator() -> None:
-    with patch("coreason_api.dependencies.ManifestValidator") as MockMV:
-        mv = get_manifest_validator()
-        assert mv is MockMV.return_value
+    with patch("coreason_api.dependencies.ManifestValidator") as MockValidator:
+        get_manifest_validator.cache_clear()
+        validator = get_manifest_validator()
+        assert validator is MockValidator.return_value
+        MockValidator.assert_called_once()
+
+
+def test_get_trust_anchor() -> None:
+    with patch("coreason_api.dependencies.AnchorAdapter") as MockAdapter:
+        get_trust_anchor.cache_clear()
+        anchor = get_trust_anchor()
+        assert anchor is MockAdapter.return_value
+        MockAdapter.assert_called_once()
+
+
+# --- Adapter Tests ---
+
+
+def test_vault_adapter() -> None:
+    mock_config = MagicMock()
+    with patch("coreason_api.adapters.VaultManager") as MockManager:
+        adapter = VaultAdapter(config=mock_config)
+
+        # Test get_secret
+        MockManager.return_value.secrets.get_secret.return_value = "secret"
+        assert adapter.get_secret("key") == "secret"
+        MockManager.return_value.secrets.get_secret.assert_called_once_with("key", default=None)
+
+
+@pytest.mark.asyncio  # type: ignore[misc]
+async def test_budget_adapter() -> None:
+    with (
+        patch("coreason_api.adapters.CoreasonBudgetConfig") as _,
+        patch("coreason_api.adapters.RedisLedger") as MockLedger,
+        patch("coreason_api.adapters.BudgetGuard") as MockGuard,
+    ):
+        adapter = BudgetAdapter(db_url="redis://test")
+        MockLedger.assert_called_once_with(redis_url="redis://test")
+
+        # Setup AsyncMocks
+        MockGuard.return_value.check = AsyncMock(return_value=True)
+        MockGuard.return_value.charge = AsyncMock()
+
+        # Test check_quota
+        assert await adapter.check_quota("user", 10.0) is True
+        MockGuard.return_value.check.assert_called_once_with(user_id="user", cost=10.0)
+
+        # Test record_transaction
+        await adapter.record_transaction("user", 5.0, {})
+        MockGuard.return_value.charge.assert_called_once_with(user_id="user", cost=5.0)
+
+
+def test_anchor_adapter() -> None:
+    with patch("coreason_api.adapters.DeterminismInterceptor") as MockInterceptor:
+        adapter = AnchorAdapter()
+        MockInterceptor.return_value.seal.return_value = "sealed"
+        assert adapter.seal({"data": 1}) == "sealed"
+        MockInterceptor.return_value.seal.assert_called_once_with({"data": 1})
+
+
+@pytest.mark.asyncio  # type: ignore[misc]
+async def test_mcp_adapter() -> None:
+    with patch("coreason_api.adapters.SessionManager") as MockManager:
+        adapter = MCPAdapter()
+        MockManager.return_value.execute_agent = AsyncMock(return_value="result")
+
+        res = await adapter.execute_agent("agent", {}, {})
+        assert res == "result"
+        MockManager.return_value.execute_agent.assert_called_once_with("agent", {}, {})
